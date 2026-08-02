@@ -1,0 +1,763 @@
+Registration_ID,Name,Sport,Phase,Category,Age,Flat,Phone
+1,Rounak Ghosh,Football,Phase 2,Kids,15,D-143,9036419205
+2,Shaurya Mukherjee,Table Tennis,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Cricket,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Chess,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Carrom,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Quiz,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Tug of War,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Walking,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Swimming,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Football,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Running,Phase 1,Kids,12,TF 16,9739978138
+2,Shaurya Mukherjee,Badminton,Phase 1,Kids,12,TF 16,9739978138
+3,Nakshatra Jenson,Running,Phase 2,Kids,10,G20,9962466642
+3,Nakshatra Jenson,Swimming,Phase 2,Kids,10,G20,9962466642
+3,Nakshatra Jenson,Walking,Phase 2,Kids,10,G20,9962466642
+3,Nakshatra Jenson,Tug of War,Phase 2,Kids,10,G20,9962466642
+4,Arshit Pandey,Football,Phase 2,Kids,12,A302,9686662834
+4,Arshit Pandey,Cricket,Phase 2,Kids,12,A302,9686662834
+4,Arshit Pandey,Chess,Phase 2,Kids,12,A302,9686662834
+4,Arshit Pandey,Quiz,Phase 2,Kids,12,A302,9686662834
+4,Arshit Pandey,Walking,Phase 2,Kids,12,A302,9686662834
+4,Arshit Pandey,Tug of War,Phase 2,Kids,12,A302,9686662834
+5,Tony Varghese,Swimming,Phase 2,Male,38,D140,"8147440644, 7994756671"
+5,Tony Varghese,Table Tennis,Phase 2,Male,38,D140,"8147440644, 7994756671"
+5,Tony Varghese,Football,Phase 2,Male,38,D140,"8147440644, 7994756671"
+5,Tony Varghese,Cricket,Phase 2,Male,38,D140,"8147440644, 7994756671"
+5,Tony Varghese,Badminton,Phase 2,Male,38,D140,"8147440644, 7994756671"
+6,Advik Anish,Football,Phase 2,Kids,9.5,A106,9538591771
+6,Advik Anish,Cricket,Phase 2,Kids,9.5,A106,9538591771
+6,Advik Anish,Running,Phase 2,Kids,9.5,A106,9538591771
+6,Advik Anish,Chess,Phase 2,Kids,9.5,A106,9538591771
+6,Advik Anish,Tug of War,Phase 2,Kids,9.5,A106,9538591771
+6,Advik Anish,Walking,Phase 2,Kids,9.5,A106,9538591771
+7,Nishant Kumar,Carrom,Phase 2,Male,30,D-241,9900252759
+7,Nishant Kumar,Badminton,Phase 2,Male,30,D-241,9900252759
+8,Arijit Banerjee,Table Tennis,Phase 2,Male,40,D337,9916383394
+8,Arijit Banerjee,Football,Phase 2,Male,40,D337,9916383394
+9,Dibyendu Biswas,Football,Phase 2,Male,44,D336,7829147454
+10,Sudhanshu Shekhar,nan,Phase 2,Male,36,C 127,9934001957
+10,Sudhanshu Shekhar,Badminton,Phase 2,Male,36,C 127,9934001957
+11,Aarush Kumar,Running,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Swimming,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Table Tennis,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Football,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Cricket,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Chess,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Carrom,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Quiz,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Walking,Phase 1,Kids,9,TF38 B block,8861908495
+11,Aarush Kumar,Tug of War,Phase 1,Kids,9,TF38 B block,8861908495
+12,Aaron S,Swimming,Phase 2,Kids,8,D342,9538317180
+12,Aaron S,Football,Phase 2,Kids,8,D342,9538317180
+12,Aaron S,Cricket,Phase 2,Kids,8,D342,9538317180
+12,Aaron S,Tug of War,Phase 2,Kids,8,D342,9538317180
+13,Shailesh singh,Table Tennis,Phase 2,Male,39,C331,8147424800
+13,Shailesh singh,Cricket,Phase 2,Male,39,C331,8147424800
+13,Shailesh singh,Carrom,Phase 2,Male,39,C331,8147424800
+13,Shailesh singh,Walking,Phase 2,Male,39,C331,8147424800
+13,Shailesh singh,Badminton,Phase 2,Male,39,C331,8147424800
+14,Devansh singh,Football,Phase 2,Male,8,C331,8147424800
+14,Devansh singh,Cricket,Phase 2,Male,8,C331,8147424800
+14,Devansh singh,Chess,Phase 2,Male,8,C331,8147424800
+15,Mokshita,Running,Phase 2,Female,7,G25,9449425076
+15,Mokshita,Swimming,Phase 2,Female,7,G25,9449425076
+15,Mokshita,Chess,Phase 2,Female,7,G25,9449425076
+15,Mokshita,Quiz,Phase 2,Female,7,G25,9449425076
+15,Mokshita,Carrom,Phase 2,Female,7,G25,9449425076
+15,Mokshita,Badminton,Phase 2,Female,7,G25,9449425076
+16,Sreelakshmi PV,nan,Phase 2,Female,44,"A, G06",9686278064
+16,Sreelakshmi PV,Badminton,Phase 2,Female,44,"A, G06",9686278064
+17,Thankamani PV,Carrom,Phase 2,Female,72,"A,G06",7760504473
+18,Mukund,nan,Phase 2,Male,42,D141,9620688822
+18,Mukund,Badminton,Phase 2,Male,42,D141,9620688822
+19,Shyama,Running,Phase 2,Male,42,C 329,9482082899
+19,Shyama,Football,Phase 2,Male,42,C 329,9482082899
+19,Shyama,Cricket,Phase 2,Male,42,C 329,9482082899
+19,Shyama,Walking,Phase 2,Male,42,C 329,9482082899
+19,Shyama,Tug of War,Phase 2,Male,42,C 329,9482082899
+20,Aariket,Tug of War,Phase 2,Kids,5,C 329,9482082899
+20,Aariket,Walking,Phase 2,Kids,5,C 329,9482082899
+20,Aariket,Quiz,Phase 2,Kids,5,C 329,9482082899
+21,Samrudhi,Quiz,Phase 2,Kids,12,C 329,9482082899
+21,Samrudhi,Walking,Phase 2,Kids,12,C 329,9482082899
+21,Samrudhi,Tug of War,Phase 2,Kids,12,C 329,9482082899
+21,Samrudhi,Running,Phase 2,Kids,12,C 329,9482082899
+22,K Tanav,Running,Phase 2,Male,7,315,8248909830
+22,K Tanav,Football,Phase 2,Male,7,315,8248909830
+23,Nishant Kumar,Carrom,Phase 1,Male,30,D-241,9900252759
+24,Roopshikha,Chess,Phase 2,Female,29,241,8792187457
+25,K Tanav,Running,Phase 2,Male,7,315,8248909830
+25,K Tanav,Football,Phase 2,Male,7,315,8248909830
+26,Chaitanya Devangam,Running,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Swimming,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Football,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Cricket,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Chess,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Quiz,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Walking,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Tug of War,Phase 2,Kids,9+,G 10-A block,9742577264
+26,Chaitanya Devangam,Badminton,Phase 2,Kids,9+,G 10-A block,9742577264
+27,Deepak Kumar Mishra,Cricket,Phase 2,Male,38,G31,8880588143
+28,Drishti sharma,Swimming,Phase 2,Kids,10,G-19,8088472383
+29,Vihaan sharma,Cricket,Phase 2,Kids,8,G-19,8088472383
+30,Vinothkumar,Running,Phase 2,Male,30,A402,9087705508
+30,Vinothkumar,Tug of War,Phase 2,Male,30,A402,9087705508
+30,Vinothkumar,Table Tennis,Phase 2,Male,30,A402,9087705508
+30,Vinothkumar,Carrom,Phase 2,Male,30,A402,9087705508
+30,Vinothkumar,Quiz,Phase 2,Male,30,A402,9087705508
+30,Vinothkumar,Walking,Phase 2,Male,30,A402,9087705508
+30,Vinothkumar,Badminton,Phase 2,Male,30,A402,9087705508
+31,Nidhisha,Running,Phase 2,Female,28,A402,7411468538
+31,Nidhisha,Tug of War,Phase 2,Female,28,A402,7411468538
+32,Arham Ali Siddiqui,Football,Phase 2,Kids,9,242,7411177786
+32,Arham Ali Siddiqui,Cricket,Phase 2,Kids,9,242,7411177786
+33,Jagadeesan,Cricket,Phase 2,Male,40,A 406,9538341420
+33,Jagadeesan,Quiz,Phase 2,Male,40,A 406,9538341420
+33,Jagadeesan,Walking,Phase 2,Male,40,A 406,9538341420
+34,Prathiksan,Running,Phase 2,Kids,9,A 406,9538341420
+34,Prathiksan,Swimming,Phase 2,Kids,9,A 406,9538341420
+34,Prathiksan,Football,Phase 2,Kids,9,A 406,9538341420
+34,Prathiksan,Cricket,Phase 2,Kids,9,A 406,9538341420
+34,Prathiksan,Walking,Phase 2,Kids,9,A 406,9538341420
+34,Prathiksan,Tug of War,Phase 2,Kids,9,A 406,9538341420
+35,Soumitra,Table Tennis,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Swimming,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Running,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Football,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Cricket,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Chess,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Carrom,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Quiz,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Walking,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Tug of War,Phase 1,Male,48,D TF 16,9739978138
+35,Soumitra,Badminton,Phase 1,Male,48,D TF 16,9739978138
+36,Ajitesh Singh,Table Tennis,Phase 1,Male,33,GF 54,9911740174
+37,Vaidika Sahu,Swimming,Phase 2,Kids,6,G24,9986024254
+37,Vaidika Sahu,Chess,Phase 2,Kids,6,G24,9986024254
+37,Vaidika Sahu,Quiz,Phase 2,Kids,6,G24,9986024254
+37,Vaidika Sahu,Football,Phase 2,Kids,6,G24,9986024254
+37,Vaidika Sahu,Walking,Phase 2,Kids,6,G24,9986024254
+38,Ronith Manoj Kumar,Running,Phase 2,Kids,9,G-17,9986010773
+38,Ronith Manoj Kumar,Swimming,Phase 2,Kids,9,G-17,9986010773
+38,Ronith Manoj Kumar,Football,Phase 2,Kids,9,G-17,9986010773
+38,Ronith Manoj Kumar,Cricket,Phase 2,Kids,9,G-17,9986010773
+38,Ronith Manoj Kumar,Chess,Phase 2,Kids,9,G-17,9986010773
+38,Ronith Manoj Kumar,Tug of War,Phase 2,Kids,9,G-17,9986010773
+38,Ronith Manoj Kumar,Walking,Phase 2,Kids,9,G-17,9986010773
+39,Tanvisha Mishra,Running,Phase 2,Female,7.1,D144,7259371920
+39,Tanvisha Mishra,Walking,Phase 2,Female,7.1,D144,7259371920
+39,Tanvisha Mishra,Quiz,Phase 2,Female,7.1,D144,7259371920
+40,Swagatika Tripathy,Cricket,Phase 2,Female,34,D144,7259371920
+40,Swagatika Tripathy,Carrom,Phase 2,Female,34,D144,7259371920
+40,Swagatika Tripathy,Badminton,Phase 2,Female,34,D144,7259371920
+41,Aayu Raj Singh,Cricket,Phase 2,Kids,13 years ,B216,9019459752
+41,Aayu Raj Singh,Football,Phase 2,Kids,13 years ,B216,9019459752
+41,Aayu Raj Singh,Chess,Phase 2,Kids,13 years ,B216,9019459752
+41,Aayu Raj Singh,Quiz,Phase 2,Kids,13 years ,B216,9019459752
+41,Aayu Raj Singh,Tug of War,Phase 2,Kids,13 years ,B216,9019459752
+42,Simon Savio,Cricket,Phase 1,Kids,13,"SF24, D block",8088526787
+42,Simon Savio,Football,Phase 1,Kids,13,"SF24, D block",8088526787
+42,Simon Savio,Running,Phase 1,Kids,13,"SF24, D block",8088526787
+42,Simon Savio,Swimming,Phase 1,Kids,13,"SF24, D block",8088526787
+42,Simon Savio,Tug of War,Phase 1,Kids,13,"SF24, D block",8088526787
+42,Simon Savio,Walking,Phase 1,Kids,13,"SF24, D block",8088526787
+42,Simon Savio,Table Tennis,Phase 1,Kids,13,"SF24, D block",8088526787
+43,Deblina Dey,Swimming,Phase 2,Female,37,C-328,9674288654
+44,Jathaved M,Cricket,Phase 1,Kids,12 years ,Gf 02,9901833700
+44,Jathaved M,Chess,Phase 1,Kids,12 years ,Gf 02,9901833700
+44,Jathaved M,Tug of War,Phase 1,Kids,12 years ,Gf 02,9901833700
+44,Jathaved M,Running,Phase 1,Kids,12 years ,Gf 02,9901833700
+44,Jathaved M,Quiz,Phase 1,Kids,12 years ,Gf 02,9901833700
+45,Santosh Mallick,Table Tennis,Phase 1,Male,41,GF-11,9916000790
+45,Santosh Mallick,Walking,Phase 1,Male,41,GF-11,9916000790
+45,Santosh Mallick,Quiz,Phase 1,Male,41,GF-11,9916000790
+45,Santosh Mallick,Swimming,Phase 1,Male,41,GF-11,9916000790
+45,Santosh Mallick,Tug of War,Phase 1,Male,41,GF-11,9916000790
+45,Santosh Mallick,Football,Phase 1,Male,41,GF-11,9916000790
+46,Ayush Patnaik,Running,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Swimming,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Table Tennis,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Football,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Cricket,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Chess,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Carrom,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Quiz,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Walking,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Tug of War,Phase 1,Kids,14,SF11,9342852762
+46,Ayush Patnaik,Badminton,Phase 1,Kids,14,SF11,9342852762
+47,Arjun Rajesh,Running,Phase 1,Kids,11,Tf 30,6238175602
+47,Arjun Rajesh,Table Tennis,Phase 1,Kids,11,Tf 30,6238175602
+47,Arjun Rajesh,Football,Phase 1,Kids,11,Tf 30,6238175602
+47,Arjun Rajesh,Chess,Phase 1,Kids,11,Tf 30,6238175602
+47,Arjun Rajesh,Carrom,Phase 1,Kids,11,Tf 30,6238175602
+47,Arjun Rajesh,Quiz,Phase 1,Kids,11,Tf 30,6238175602
+48,Rajesh A,nan,Phase 1,Male,47,Tf 30,6238175602
+48,Rajesh A,Badminton,Phase 1,Male,47,Tf 30,6238175602
+49,Ashis Patnaik,Running,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Football,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Cricket,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Carrom,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Table Tennis,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Quiz,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Walking,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Tug of War,Phase 1,Male,44,SF11,9342852762
+49,Ashis Patnaik,Badminton,Phase 1,Male,44,SF11,9342852762
+50,Neeraj,Carrom,Phase 1,Kids,11,TF20  Dblock,9945034151
+51,Subhashree Bhagyalaxmi,Running,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Table Tennis,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Football,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Cricket,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Carrom,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Quiz,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Walking,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Tug of War,Phase 1,Female,44,SF11,9342852762
+51,Subhashree Bhagyalaxmi,Badminton,Phase 1,Female,44,SF11,9342852762
+52,Neeraj,Walking,Phase 1,Kids,11years,TF20 Dblock,9945034151
+53,Ayan Mukherjee,Swimming,Phase 1,Male,39,TF 47,9742735547
+53,Ayan Mukherjee,Tug of War,Phase 1,Male,39,TF 47,9742735547
+54,Neeraj,Running,Phase 1,Kids,11 years,TF20 Dblock,9945034151
+54,Neeraj,Tug of War,Phase 1,Kids,11 years,TF20 Dblock,9945034151
+54,Neeraj,Carrom,Phase 1,Kids,11 years,TF20 Dblock,9945034151
+54,Neeraj,Walking,Phase 1,Kids,11 years,TF20 Dblock,9945034151
+55,RYAN MORAS,Running,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Swimming,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Table Tennis,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Football,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Chess,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Carrom,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Quiz,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Walking,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Tug of War,Phase 1,Male,11,Sf43,7338053160
+55,RYAN MORAS,Badminton,Phase 1,Male,11,Sf43,7338053160
+56,Jeana Moras,Running,Phase 1,Kids,7,SF43,7338053160
+56,Jeana Moras,Chess,Phase 1,Kids,7,SF43,7338053160
+56,Jeana Moras,Carrom,Phase 1,Kids,7,SF43,7338053160
+56,Jeana Moras,Walking,Phase 1,Kids,7,SF43,7338053160
+56,Jeana Moras,Quiz,Phase 1,Kids,7,SF43,7338053160
+57,Ashutosh Patro,Chess,Phase 2,Male,45,C225,9972228700
+57,Ashutosh Patro,Walking,Phase 2,Male,45,C225,9972228700
+57,Ashutosh Patro,Cricket,Phase 2,Male,45,C225,9972228700
+57,Ashutosh Patro,Quiz,Phase 2,Male,45,C225,9972228700
+57,Ashutosh Patro,Badminton,Phase 2,Male,45,C225,9972228700
+58,Ojas agarwal,Running,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Swimming,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Table Tennis,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Football,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Cricket,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Chess,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Carrom,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Quiz,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Walking,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Tug of War,Phase 1,Kids,13,SF 19,8861303428
+58,Ojas agarwal,Badminton,Phase 1,Kids,13,SF 19,8861303428
+59,Aditri agarwal,Swimming,Phase 1,Kids,6,SF 19,8861303428
+59,Aditri agarwal,Running,Phase 1,Kids,6,SF 19,8861303428
+59,Aditri agarwal,Quiz,Phase 1,Kids,6,SF 19,8861303428
+59,Aditri agarwal,Walking,Phase 1,Kids,6,SF 19,8861303428
+59,Aditri agarwal,Tug of War,Phase 1,Kids,6,SF 19,8861303428
+60,Yugesh Mucherla,Table Tennis,Phase 1,Male,35,GF09,9003468326
+60,Yugesh Mucherla,Carrom,Phase 1,Male,35,GF09,9003468326
+61,Uttam,Cricket,Phase 1,Male,46,tf 22,9901333117
+61,Uttam,Tug of War,Phase 1,Male,46,tf 22,9901333117
+61,Uttam,Football,Phase 1,Male,46,tf 22,9901333117
+62,Dharan j narang,Cricket,Phase 1,Male,14years,Tf 40 b block,9884617031
+62,Dharan j narang,Football,Phase 1,Male,14years,Tf 40 b block,9884617031
+62,Dharan j narang,Table Tennis,Phase 1,Male,14years,Tf 40 b block,9884617031
+63,Dharanjeet,Football,Phase 1,Male,14,Tf 40 b block,8056155609
+63,Dharanjeet,Cricket,Phase 1,Male,14,Tf 40 b block,8056155609
+63,Dharanjeet,Table Tennis,Phase 1,Male,14,Tf 40 b block,8056155609
+63,Dharanjeet,Chess,Phase 1,Male,14,Tf 40 b block,8056155609
+64,Amarah,Running,Phase 1,Kids,8,TF14,7204352110
+64,Amarah,Badminton,Phase 1,Kids,8,TF14,7204352110
+65,Shashank Drolia,Football,Phase 2,Male,26,C-324,8923168500
+65,Shashank Drolia,Carrom,Phase 2,Male,26,C-324,8923168500
+65,Shashank Drolia,Quiz,Phase 2,Male,26,C-324,8923168500
+65,Shashank Drolia,Tug of War,Phase 2,Male,26,C-324,8923168500
+65,Shashank Drolia,Chess,Phase 2,Male,26,C-324,8923168500
+65,Shashank Drolia,Badminton,Phase 2,Male,26,C-324,8923168500
+66,Sanskar Agrawal,Tug of War,Phase 2,Male,26,C-324,8602573106
+66,Sanskar Agrawal,Quiz,Phase 2,Male,26,C-324,8602573106
+66,Sanskar Agrawal,Badminton,Phase 2,Male,26,C-324,8602573106
+67,Ankit Naskar,Running,Phase 2,Kids,9,B229,7892631589
+67,Ankit Naskar,Football,Phase 2,Kids,9,B229,7892631589
+67,Ankit Naskar,Cricket,Phase 2,Kids,9,B229,7892631589
+67,Ankit Naskar,Chess,Phase 2,Kids,9,B229,7892631589
+67,Ankit Naskar,Carrom,Phase 2,Kids,9,B229,7892631589
+67,Ankit Naskar,Walking,Phase 2,Kids,9,B229,7892631589
+67,Ankit Naskar,Tug of War,Phase 2,Kids,9,B229,7892631589
+68,Nirvaan Behera,Cricket,Phase 2,Kids,10,311,9740176517
+68,Nirvaan Behera,Chess,Phase 2,Kids,10,311,9740176517
+68,Nirvaan Behera,Tug of War,Phase 2,Kids,10,311,9740176517
+69,Mahaveer Prajapat,Running,Phase 2,Male,27,C324,7888876179
+69,Mahaveer Prajapat,Cricket,Phase 2,Male,27,C324,7888876179
+69,Mahaveer Prajapat,Quiz,Phase 2,Male,27,C324,7888876179
+69,Mahaveer Prajapat,Table Tennis,Phase 2,Male,27,C324,7888876179
+69,Mahaveer Prajapat,Tug of War,Phase 2,Male,27,C324,7888876179
+70,Naba Kishore Behera,Football,Phase 2,Male,42,311,9740176517
+70,Naba Kishore Behera,Cricket,Phase 2,Male,42,311,9740176517
+70,Naba Kishore Behera,Tug of War,Phase 2,Male,42,311,9740176517
+70,Naba Kishore Behera,Walking,Phase 2,Male,42,311,9740176517
+71,Sanskar Agrawal,Running,Phase 2,Male,26,C-324,8602573106
+71,Sanskar Agrawal,Quiz,Phase 2,Male,26,C-324,8602573106
+71,Sanskar Agrawal,Walking,Phase 2,Male,26,C-324,8602573106
+71,Sanskar Agrawal,Badminton,Phase 2,Male,26,C-324,8602573106
+72,PRATUL R,Cricket,Phase 2,Kids,13,A 209,9986343874
+72,PRATUL R,Football,Phase 2,Kids,13,A 209,9986343874
+72,PRATUL R,Tug of War,Phase 2,Kids,13,A 209,9986343874
+73,Sethu Ram Vuppala,Running,Phase 1,Male,43,GF35,9008802334
+73,Sethu Ram Vuppala,Cricket,Phase 1,Male,43,GF35,9008802334
+73,Sethu Ram Vuppala,Chess,Phase 1,Male,43,GF35,9008802334
+73,Sethu Ram Vuppala,Quiz,Phase 1,Male,43,GF35,9008802334
+73,Sethu Ram Vuppala,Walking,Phase 1,Male,43,GF35,9008802334
+73,Sethu Ram Vuppala,Tug of War,Phase 1,Male,43,GF35,9008802334
+73,Sethu Ram Vuppala,Football,Phase 1,Male,43,GF35,9008802334
+74,Pooja Verma,Table Tennis,Phase 1,Female,25,GF 45,9352503720
+74,Pooja Verma,Cricket,Phase 1,Female,25,GF 45,9352503720
+74,Pooja Verma,Carrom,Phase 1,Female,25,GF 45,9352503720
+74,Pooja Verma,Badminton,Phase 1,Female,25,GF 45,9352503720
+75,Arhansh,Running,Phase 2,Kids,5,B121,8951298878
+75,Arhansh,Tug of War,Phase 2,Kids,5,B121,8951298878
+75,Arhansh,Football,Phase 2,Kids,5,B121,8951298878
+76,Rishi Tiwari,Walking,Phase 1,Female,40,GF-42,6361481780
+76,Rishi Tiwari,Tug of War,Phase 1,Female,40,GF-42,6361481780
+77,Jayant Kumar,Table Tennis,Phase 2,Male,35,430,8050575016
+78,Divya S Kurup,Tug of War,Phase 1,Female,37,Sf 13 D block,8197680777
+78,Divya S Kurup,Football,Phase 1,Female,37,Sf 13 D block,8197680777
+78,Divya S Kurup,Badminton,Phase 1,Female,37,Sf 13 D block,8197680777
+79,Kushal,Running,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Swimming,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Table Tennis,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Football,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Cricket,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Chess,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Carrom,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Quiz,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Tug of War,Phase 1,Male,17,SF-40,9916131898
+79,Kushal,Badminton,Phase 1,Male,17,SF-40,9916131898
+80,Raju,nan,Phase 1,Male,46,SF40,9916131898
+80,Raju,Badminton,Phase 1,Male,46,SF40,9916131898
+81,Anshu Pandey,Swimming,Phase 2,Kids,12,G03,7033694024
+81,Anshu Pandey,Football,Phase 2,Kids,12,G03,7033694024
+81,Anshu Pandey,Chess,Phase 2,Kids,12,G03,7033694024
+81,Anshu Pandey,Cricket,Phase 2,Kids,12,G03,7033694024
+82,Sreelakshmi P V,Running,Phase 2,Female,44,G 06,9686278064
+83,Shashaank patekar,Running,Phase 2,Male,32,A403,8984700881
+84,Aakash Sha,Chess,Phase 2,Kids,6,233,9674145756
+84,Aakash Sha,Quiz,Phase 2,Kids,6,233,9674145756
+85,Aanvi Sha,Chess,Phase 2,Kids,6,233,9674145756
+85,Aanvi Sha,Quiz,Phase 2,Kids,6,233,9674145756
+86,aditya jayant,Running,Phase 2,Kids,9,A-401,9886478341
+86,aditya jayant,Swimming,Phase 2,Kids,9,A-401,9886478341
+86,aditya jayant,Football,Phase 2,Kids,9,A-401,9886478341
+86,aditya jayant,Cricket,Phase 2,Kids,9,A-401,9886478341
+86,aditya jayant,Chess,Phase 2,Kids,9,A-401,9886478341
+86,aditya jayant,Quiz,Phase 2,Kids,9,A-401,9886478341
+86,aditya jayant,Tug of War,Phase 2,Kids,9,A-401,9886478341
+87,aditya jayant,Running,Phase 2,Male,43,A-401,9886478341
+87,aditya jayant,Football,Phase 2,Male,43,A-401,9886478341
+87,aditya jayant,Cricket,Phase 2,Male,43,A-401,9886478341
+87,aditya jayant,Chess,Phase 2,Male,43,A-401,9886478341
+87,aditya jayant,Badminton,Phase 2,Male,43,A-401,9886478341
+88,Rajesh Chamanthula,Carrom,Phase 2,Male,42,240,9341447123
+89,RATHEESH K R,Carrom,Phase 2,Male,43,A 209,9986343874
+90,Dhruv V Nair,Football,Phase 2,Male,12,B116,8007308834
+90,Dhruv V Nair,Tug of War,Phase 2,Male,12,B116,8007308834
+90,Dhruv V Nair,Walking,Phase 2,Male,12,B116,8007308834
+91,Jom Michael,nan,Phase 1,Male,36,B 118,8144630979
+91,Jom Michael,Badminton,Phase 1,Male,36,B 118,8144630979
+92,Manisha Nande,Running,Phase 2,Female,37,G39,9611092140
+92,Manisha Nande,Chess,Phase 2,Female,37,G39,9611092140
+92,Manisha Nande,Tug of War,Phase 2,Female,37,G39,9611092140
+92,Manisha Nande,Badminton,Phase 2,Female,37,G39,9611092140
+93,Ishitaa Dash,Chess,Phase 2,Kids,9,G39,9916490742
+93,Ishitaa Dash,Running,Phase 2,Kids,9,G39,9916490742
+93,Ishitaa Dash,Football,Phase 2,Kids,9,G39,9916490742
+93,Ishitaa Dash,Quiz,Phase 2,Kids,9,G39,9916490742
+93,Ishitaa Dash,Badminton,Phase 2,Kids,9,G39,9916490742
+94,Aayra Dash,Quiz,Phase 1,Kids,6,G39,9916490742
+94,Aayra Dash,Running,Phase 1,Kids,6,G39,9916490742
+94,Aayra Dash,Football,Phase 1,Kids,6,G39,9916490742
+94,Aayra Dash,Badminton,Phase 1,Kids,6,G39,9916490742
+95,Praveen Dash,Cricket,Phase 2,Male,41,G39,9916490742
+95,Praveen Dash,Chess,Phase 2,Male,41,G39,9916490742
+95,Praveen Dash,Carrom,Phase 2,Male,41,G39,9916490742
+95,Praveen Dash,Badminton,Phase 2,Male,41,G39,9916490742
+96,Ishitaa Dash,Chess,Phase 2,Kids,9,G39,9916490742
+96,Ishitaa Dash,Carrom,Phase 2,Kids,9,G39,9916490742
+96,Ishitaa Dash,Quiz,Phase 2,Kids,9,G39,9916490742
+96,Ishitaa Dash,Badminton,Phase 2,Kids,9,G39,9916490742
+97,Arun Netto,Table Tennis,Phase 2,Male,45,C223,9739426200
+97,Arun Netto,Carrom,Phase 2,Male,45,C223,9739426200
+98,Santosh Kumar,Cricket,Phase 1,Male,39,GF16,7353057888
+99,Ravi Ranjan,Running,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Swimming,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Table Tennis,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Football,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Cricket,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Chess,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Quiz,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Walking,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Tug of War,Phase 1,Male,49,SF-06,8904022206
+99,Ravi Ranjan,Badminton,Phase 1,Male,49,SF-06,8904022206
+100,Manjoosha Shetty,Quiz,Phase 2,Female,34,C-428,9741231438
+100,Manjoosha Shetty,Cricket,Phase 2,Female,34,C-428,9741231438
+101,Nitesh Panda,Cricket,Phase 1,Male,39,G-43,8420158062
+101,Nitesh Panda,Badminton,Phase 1,Male,39,G-43,8420158062
+102,Deeptendra Daityari,nan,Phase 2,Male,42,A-310,8411941493
+102,Deeptendra Daityari,Badminton,Phase 2,Male,42,A-310,8411941493
+103,Advika Raghvendra Pande,Running,Phase 1,Kids,12,FF-41,8971238838
+103,Advika Raghvendra Pande,Swimming,Phase 1,Kids,12,FF-41,8971238838
+103,Advika Raghvendra Pande,Football,Phase 1,Kids,12,FF-41,8971238838
+103,Advika Raghvendra Pande,Walking,Phase 1,Kids,12,FF-41,8971238838
+103,Advika Raghvendra Pande,Carrom,Phase 1,Kids,12,FF-41,8971238838
+103,Advika Raghvendra Pande,Chess,Phase 1,Kids,12,FF-41,8971238838
+103,Advika Raghvendra Pande,Tug of War,Phase 1,Kids,12,FF-41,8971238838
+104,Anagha Raghvendra Pande,Running,Phase 1,Kids,12,FF-41,9731031508
+104,Anagha Raghvendra Pande,Swimming,Phase 1,Kids,12,FF-41,9731031508
+104,Anagha Raghvendra Pande,Football,Phase 1,Kids,12,FF-41,9731031508
+104,Anagha Raghvendra Pande,Chess,Phase 1,Kids,12,FF-41,9731031508
+104,Anagha Raghvendra Pande,Carrom,Phase 1,Kids,12,FF-41,9731031508
+104,Anagha Raghvendra Pande,Walking,Phase 1,Kids,12,FF-41,9731031508
+104,Anagha Raghvendra Pande,Tug of War,Phase 1,Kids,12,FF-41,9731031508
+105,Bikee Kumar Gupta,nan,Phase 2,Male,37,A-105,9535348038
+105,Bikee Kumar Gupta,Badminton,Phase 2,Male,37,A-105,9535348038
+106,Ayushman,Running,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Swimming,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Table Tennis,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Football,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Cricket,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Chess,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Carrom,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Quiz,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Walking,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Tug of War,Phase 1,Male,14,Sf-36,9986070908
+106,Ayushman,Badminton,Phase 1,Male,14,Sf-36,9986070908
+107,Sharman Sahoo,Swimming,Phase 1,Kids,10,"TF 36, B block",8660171205
+107,Sharman Sahoo,Carrom,Phase 1,Kids,10,"TF 36, B block",8660171205
+108,Santwana padhi,Walking,Phase 2,Female,34,C-329,9686833122
+108,Santwana padhi,Tug of War,Phase 2,Female,34,C-329,9686833122
+108,Santwana padhi,Cricket,Phase 2,Female,34,C-329,9686833122
+109,Sourabh,Cricket,Phase 2,Male,38,D144,8197233113
+110,Sourabh,nan,Phase 2,Male,38,D144,8197233113
+110,Sourabh,Badminton,Phase 2,Male,38,D144,8197233113
+111,Reyan Sunil,Carrom,Phase 2,Kids,8,212,9742011124
+112,Sai siddhan,Swimming,Phase 1,Kids,8,Tf 29,9490525026
+113,Brijesh Rajput,Cricket,Phase 2,Male,42,128,8123710741
+114,Vani Tiwari,Running,Phase 1,Kids,12,GF-42,6361481780
+114,Vani Tiwari,Swimming,Phase 1,Kids,12,GF-42,6361481780
+114,Vani Tiwari,Walking,Phase 1,Kids,12,GF-42,6361481780
+114,Vani Tiwari,Carrom,Phase 1,Kids,12,GF-42,6361481780
+114,Vani Tiwari,Chess,Phase 1,Kids,12,GF-42,6361481780
+115,sara,Football,Phase 1,Kids,14,TF22,+91 79 7808 2494
+115,sara,Running,Phase 1,Kids,14,TF22,+91 79 7808 2494
+115,sara,Walking,Phase 1,Kids,14,TF22,+91 79 7808 2494
+115,sara,Tug of War,Phase 1,Kids,14,TF22,+91 79 7808 2494
+116,Rohit jain,Table Tennis,Phase 2,Male,38,B218,8147637530
+116,Rohit jain,Chess,Phase 2,Male,38,B218,8147637530
+117,Awadhesh,Cricket,Phase 2,Male,36,135,9538216103
+117,Awadhesh,Badminton,Phase 2,Male,36,135,9538216103
+118,Sachin Koli,Walking,Phase 1,Male,40,B FF32,9769283184
+119,Gurudev J,Running,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Football,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Cricket,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Chess,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Carrom,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Quiz,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Tug of War,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Walking,Phase 1,Kids,8,FF29,8883018813
+119,Gurudev J,Badminton,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Running,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Football,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Cricket,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Chess,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Carrom,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Quiz,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Walking,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Tug of War,Phase 1,Kids,8,FF29,8883018813
+120,Gurudhayal J,Badminton,Phase 1,Kids,8,FF29,8883018813
+121,ARUSH UPPENA,Swimming,Phase 1,Kids,6,TF42,98863 59116
+122,Anusha Uppena,Running,Phase 1,Female,32,TF42,98863 59116
+123,Bijay laxmi,Table Tennis,Phase 2,Female,34,"G-24 , C block",8951580063
+123,Bijay laxmi,Cricket,Phase 2,Female,34,"G-24 , C block",8951580063
+123,Bijay laxmi,Carrom,Phase 2,Female,34,"G-24 , C block",8951580063
+123,Bijay laxmi,Running,Phase 2,Female,34,"G-24 , C block",8951580063
+123,Bijay laxmi,Walking,Phase 2,Female,34,"G-24 , C block",8951580063
+123,Bijay laxmi,Badminton,Phase 2,Female,34,"G-24 , C block",8951580063
+124,Virendra,Table Tennis,Phase 2,Male,42,G-19,8088472383
+124,Virendra,Cricket,Phase 2,Male,42,G-19,8088472383
+125,Anish Kumar S,Table Tennis,Phase 2,Male,42,A106,9731800446
+125,Anish Kumar S,Cricket,Phase 2,Male,42,A106,9731800446
+125,Anish Kumar S,Badminton,Phase 2,Male,42,A106,9731800446
+126,Vihaan Perla,Running,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Football,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Chess,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Carrom,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Quiz,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Walking,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Tug of War,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Swimming,Phase 1,Kids,14,FF51,9902700449
+126,Vihaan Perla,Badminton,Phase 1,Kids,14,FF51,9902700449
+127,Satabdi Mishra,Running,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Football,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Cricket,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Chess,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Carrom,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Quiz,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Walking,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Tug of War,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Badminton,Phase 1,Female,42,Sf 36,8431323764
+127,Satabdi Mishra,Table Tennis,Phase 1,Female,42,Sf 36,8431323764
+128,Vishanth Perla,Walking,Phase 1,Kids,7,FF51,9902700449
+128,Vishanth Perla,Tug of War,Phase 1,Kids,7,FF51,9902700449
+128,Vishanth Perla,Football,Phase 1,Kids,7,FF51,9902700449
+128,Vishanth Perla,Running,Phase 1,Kids,7,FF51,9902700449
+129,SIKANDER RAI,Cricket,Phase 2,Male,55,G 41,9483158836
+129,SIKANDER RAI,Badminton,Phase 2,Male,55,G 41,9483158836
+130,Prashanth,Walking,Phase 1,Male,46,FF51,9902700449
+130,Prashanth,Tug of War,Phase 1,Male,46,FF51,9902700449
+131,Patitapaban Sha,Cricket,Phase 2,Male,37,233,9674145756
+131,Patitapaban Sha,Chess,Phase 2,Male,37,233,9674145756
+131,Patitapaban Sha,Badminton,Phase 2,Male,37,233,9674145756
+132,Ditya Singh,Running,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Swimming,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Table Tennis,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Football,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Cricket,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Chess,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Carrom,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Quiz,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Walking,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Tug of War,Phase 1,Kids,15,SF-06,9108861411
+132,Ditya Singh,Badminton,Phase 1,Kids,15,SF-06,9108861411
+133,Swagatika Tripathy,Walking,Phase 2,Female,34,D144,7259371920
+133,Swagatika Tripathy,Table Tennis,Phase 2,Female,34,D144,7259371920
+134,Nishant Singh,Running,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Swimming,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Table Tennis,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Football,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Cricket,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Chess,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Carrom,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Quiz,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Walking,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Tug of War,Phase 1,Kids,16,SF-06,9108861411
+134,Nishant Singh,Badminton,Phase 1,Kids,16,SF-06,9108861411
+135,usha Singh,Running,Phase 1,Female,46,SF-06,9108861411
+135,usha Singh,Walking,Phase 1,Female,46,SF-06,9108861411
+135,usha Singh,Tug of War,Phase 1,Female,46,SF-06,9108861411
+135,usha Singh,Cricket,Phase 1,Female,46,SF-06,9108861411
+136,Manoj C P,Running,Phase 1,Male,42,Gf 02,9901933700
+136,Manoj C P,Chess,Phase 1,Male,42,Gf 02,9901933700
+136,Manoj C P,Walking,Phase 1,Male,42,Gf 02,9901933700
+136,Manoj C P,Tug of War,Phase 1,Male,42,Gf 02,9901933700
+136,Manoj C P,Quiz,Phase 1,Male,42,Gf 02,9901933700
+137,Debarshi Daityari,Cricket,Phase 2,Kids,9,A-310,8411941493
+137,Debarshi Daityari,Football,Phase 2,Kids,9,A-310,8411941493
+137,Debarshi Daityari,Badminton,Phase 2,Kids,9,A-310,8411941493
+138,Rishan Biswas,Running,Phase 2,Male,10,C 325,9739007075
+138,Rishan Biswas,Cricket,Phase 2,Male,10,C 325,9739007075
+138,Rishan Biswas,Carrom,Phase 2,Male,10,C 325,9739007075
+138,Rishan Biswas,Walking,Phase 2,Male,10,C 325,9739007075
+138,Rishan Biswas,Tug of War,Phase 2,Male,10,C 325,9739007075
+138,Rishan Biswas,Badminton,Phase 2,Male,10,C 325,9739007075
+139,Deeptendra Daityari,nan,Phase 2,Male,42,A-310,8411941493
+139,Deeptendra Daityari,Badminton,Phase 2,Male,42,A-310,8411941493
+140,Mokshita Swain,Tug of War,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Swimming,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Chess,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Carrom,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Quiz,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Walking,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Running,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Table Tennis,Phase 2,Female,7,G25,9449425076
+140,Mokshita Swain,Badminton,Phase 2,Female,7,G25,9449425076
+141,Asha Kiran,Table Tennis,Phase 2,Female,38,G25,8105965076
+141,Asha Kiran,Chess,Phase 2,Female,38,G25,8105965076
+141,Asha Kiran,Carrom,Phase 2,Female,38,G25,8105965076
+141,Asha Kiran,Quiz,Phase 2,Female,38,G25,8105965076
+141,Asha Kiran,Walking,Phase 2,Female,38,G25,8105965076
+141,Asha Kiran,Tug of War,Phase 2,Female,38,G25,8105965076
+141,Asha Kiran,Badminton,Phase 2,Female,38,G25,8105965076
+142,Gyan,Table Tennis,Phase 2,Male,38,G25,9449425076
+142,Gyan,Chess,Phase 2,Male,38,G25,9449425076
+142,Gyan,Carrom,Phase 2,Male,38,G25,9449425076
+142,Gyan,Badminton,Phase 2,Male,38,G25,9449425076
+143,Biswajit Sahu,Table Tennis,Phase 2,Male,42,C-G24,9986024254
+143,Biswajit Sahu,Football,Phase 2,Male,42,C-G24,9986024254
+143,Biswajit Sahu,Cricket,Phase 2,Male,42,C-G24,9986024254
+143,Biswajit Sahu,Badminton,Phase 2,Male,42,C-G24,9986024254
+144,Manisha Nande,Running,Phase 2,Female,37,G39,9611092140
+144,Manisha Nande,Chess,Phase 2,Female,37,G39,9611092140
+144,Manisha Nande,Quiz,Phase 2,Female,37,G39,9611092140
+144,Manisha Nande,Tug of War,Phase 2,Female,37,G39,9611092140
+144,Manisha Nande,Walking,Phase 2,Female,37,G39,9611092140
+144,Manisha Nande,Badminton,Phase 2,Female,37,G39,9611092140
+145,Manisha Nande,Quiz,Phase 2,Female,37,G39,9611092140
+145,Manisha Nande,Walking,Phase 2,Female,37,G39,9611092140
+145,Manisha Nande,Swimming,Phase 2,Female,37,G39,9611092140
+145,Manisha Nande,Running,Phase 2,Female,37,G39,9611092140
+145,Manisha Nande,Chess,Phase 2,Female,37,G39,9611092140
+145,Manisha Nande,Badminton,Phase 2,Female,37,G39,9611092140
+146,Vidit Pavnaskar,Football,Phase 1,Male,42,"TF-09, E-block",9561961344
+147,Vijay Nair,nan,Phase 2,Male,45,B116,8007308834
+147,Vijay Nair,Badminton,Phase 2,Male,45,B116,8007308834
+148,Ranjit sahoo,Chess,Phase 1,Male,42,Tf36,9986156732
+148,Ranjit sahoo,Carrom,Phase 1,Male,42,Tf36,9986156732
+148,Ranjit sahoo,Walking,Phase 1,Male,42,Tf36,9986156732
+148,Ranjit sahoo,Badminton,Phase 1,Male,42,Tf36,9986156732
+148,Ranjit sahoo,Table Tennis,Phase 1,Male,42,Tf36,9986156732
+149,Ivaan Mondal,Football,Phase 2,Male,9,A 111,9008616576
+149,Ivaan Mondal,Walking,Phase 2,Male,9,A 111,9008616576
+150,Pritikant Sahoo,nan,Phase 2,Male,27,D-343,9439342691
+150,Pritikant Sahoo,Badminton,Phase 2,Male,27,D-343,9439342691
+151,Abhishek Tanwar,Table Tennis,Phase 1,Male,32,GF50 A block,8168268713
+151,Abhishek Tanwar,Football,Phase 1,Male,32,GF50 A block,8168268713
+151,Abhishek Tanwar,Cricket,Phase 1,Male,32,GF50 A block,8168268713
+151,Abhishek Tanwar,Badminton,Phase 1,Male,32,GF50 A block,8168268713
+152,Sweta singh,Walking,Phase 1,Female,32,Gf50 Ablock,9115682434
+152,Sweta singh,Running,Phase 1,Female,32,Gf50 Ablock,9115682434
+152,Sweta singh,Cricket,Phase 1,Female,32,Gf50 Ablock,9115682434
+152,Sweta singh,Chess,Phase 1,Female,32,Gf50 Ablock,9115682434
+152,Sweta singh,Badminton,Phase 1,Female,32,Gf50 Ablock,9115682434
+153,Rishon Arun Joseph,Football,Phase 2,Male,16,C223,9739426200
+154,Santhoesh,Table Tennis,Phase 1,Male,18,Tf-51,9740857857
+154,Santhoesh,Football,Phase 1,Male,18,Tf-51,9740857857
+154,Santhoesh,Cricket,Phase 1,Male,18,Tf-51,9740857857
+154,Santhoesh,Running,Phase 1,Male,18,Tf-51,9740857857
+154,Santhoesh,Carrom,Phase 1,Male,18,Tf-51,9740857857
+154,Santhoesh,Badminton,Phase 1,Male,18,Tf-51,9740857857
+155,Akhil Rajput,Table Tennis,Phase 2,Male,17,C-128,8088566943
+155,Akhil Rajput,Football,Phase 2,Male,17,C-128,8088566943
+155,Akhil Rajput,Cricket,Phase 2,Male,17,C-128,8088566943
+155,Akhil Rajput,Carrom,Phase 2,Male,17,C-128,8088566943
+155,Akhil Rajput,Badminton,Phase 2,Male,17,C-128,8088566943
+156,Dr Umesh Sharma,Running,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+156,Dr Umesh Sharma,Swimming,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+156,Dr Umesh Sharma,Football,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+156,Dr Umesh Sharma,Cricket,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+156,Dr Umesh Sharma,Carrom,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+156,Dr Umesh Sharma,Quiz,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+156,Dr Umesh Sharma,Walking,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+156,Dr Umesh Sharma,Tug of War,Phase 1,Male,8Dec 1958  67 year ,C block SF 26,9165841281
+157,Karthik C,Cricket,Phase 1,Male,36,TF19 D block,9036366312
+157,Karthik C,Carrom,Phase 1,Male,36,TF19 D block,9036366312
+157,Karthik C,Quiz,Phase 1,Male,36,TF19 D block,9036366312
+158,Jaykrith K,Cricket,Phase 1,Kids,9,TF19 D block,9036366312
+159,Varma Kalidindi,Cricket,Phase 1,Male,39,FF20,8884824555
+159,Varma Kalidindi,Tug of War,Phase 1,Male,39,FF20,8884824555
+159,Varma Kalidindi,Badminton,Phase 1,Male,39,FF20,8884824555
+160,Heshvika,Swimming,Phase 1,Kids,7,FF20,8884824555
+160,Heshvika,Walking,Phase 1,Kids,7,FF20,8884824555
+161,Roshin Mohan A,Chess,Phase 1,Male,34,TF44,9108823346
+162,Kowsalya,nan,Phase 1,Female,29,GF 21,7339616030
+162,Kowsalya,Badminton,Phase 1,Female,29,GF 21,7339616030
+163,Vani Tiwari,Running,Phase 1,Kids,12,GF-42,6361481780
+163,Vani Tiwari,Swimming,Phase 1,Kids,12,GF-42,6361481780
+163,Vani Tiwari,Football,Phase 1,Kids,12,GF-42,6361481780
+163,Vani Tiwari,Cricket,Phase 1,Kids,12,GF-42,6361481780
+163,Vani Tiwari,Chess,Phase 1,Kids,12,GF-42,6361481780
+163,Vani Tiwari,Carrom,Phase 1,Kids,12,GF-42,6361481780
+163,Vani Tiwari,Walking,Phase 1,Kids,12,GF-42,6361481780
+163,Vani Tiwari,Tug of War,Phase 1,Kids,12,GF-42,6361481780
+164,Bhavya k,nan,Phase 1,Female,34,FF20 D block,9100648452
+164,Bhavya k,Badminton,Phase 1,Female,34,FF20 D block,9100648452
+165,Abinaya,Walking,Phase 2,Female,36,A 406,8892767701
+166,Arun Pandey,Cricket,Phase 2,Male,43,A302,9686662834
+167,Anagha,Football,Phase 1,Kids,12,FF41,9731031508
+167,Anagha,Cricket,Phase 1,Kids,12,FF41,9731031508
+167,Anagha,Chess,Phase 1,Kids,12,FF41,9731031508
+167,Anagha,Quiz,Phase 1,Kids,12,FF41,9731031508
+167,Anagha,Walking,Phase 1,Kids,12,FF41,9731031508
+167,Anagha,Tug of War,Phase 1,Kids,12,FF41,9731031508
+167,Anagha,Swimming,Phase 1,Kids,12,FF41,9731031508
+167,Anagha,Running,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Running,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Swimming,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Football,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Cricket,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Chess,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Quiz,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Walking,Phase 1,Kids,12,FF41,9731031508
+168,Advika,Tug of War,Phase 1,Kids,12,FF41,9731031508
+169,Praveen kumar Modugu,Cricket,Phase 2,Male,28,D block 443,9542387648
+170,Tanvi Nayak,Tug of War,Phase 1,Kids,13,FF.52,7829809358
+170,Tanvi Nayak,Badminton,Phase 1,Kids,13,FF.52,7829809358
+171,Tanvi Nayak,Swimming,Phase 1,Kids,13,FF.52,7829809358
+172,Rupika Jha,Quiz,Phase 2,Kids,11,D-141,9916094692
+173,Meesha Saraswat,nan,Phase 1,Kids,16,Gf01,9811777929
+173,Meesha Saraswat,Badminton,Phase 1,Kids,16,Gf01,9811777929
+174,Saesha Prusty,nan,Phase 2,Male,10,A208,9741545088
+174,Saesha Prusty,Badminton,Phase 2,Male,10,A208,9741545088
+175,AASHVISAI KARTHIK,Chess,Phase 2,Kids,11,A207,9740298653
+175,AASHVISAI KARTHIK,Badminton,Phase 2,Kids,11,A207,9740298653
+176,Lavanya,Swimming,Phase 1,Female,32,Gf-16,9791052316
+176,Lavanya,Badminton,Phase 1,Female,32,Gf-16,9791052316
+177,Jitendra,Swimming,Phase 1,Male,44,SF 16,7411511082
+177,Jitendra,Table Tennis,Phase 1,Male,44,SF 16,7411511082
+177,Jitendra,Cricket,Phase 1,Male,44,SF 16,7411511082
+177,Jitendra,Football,Phase 1,Male,44,SF 16,7411511082
+178,Sankeerth,Table Tennis,Phase 1,Male,35,B-TF-41,8105992962
+178,Sankeerth,Football,Phase 1,Male,35,B-TF-41,8105992962
+178,Sankeerth,Badminton,Phase 1,Male,35,B-TF-41,8105992962
+179,Ankit Priyesh,nan,Phase 1,Male,25,FF22,8949207747
+179,Ankit Priyesh,Badminton,Phase 1,Male,25,FF22,8949207747
+180,ISHIKA PATEL,Running,Phase 1,Kids,11,TF-24,7760855400
+180,ISHIKA PATEL,Walking,Phase 1,Kids,11,TF-24,7760855400
+180,ISHIKA PATEL,Tug of War,Phase 1,Kids,11,TF-24,7760855400
+180,ISHIKA PATEL,Badminton,Phase 1,Kids,11,TF-24,7760855400
+181,SUBHAS CHANDRA PATEL,Cricket,Phase 1,Male,45,TF-24,7760855400
+181,SUBHAS CHANDRA PATEL,Quiz,Phase 1,Male,45,TF-24,7760855400
+181,SUBHAS CHANDRA PATEL,Walking,Phase 1,Male,45,TF-24,7760855400
+182,Aditri Agarwal,Running,Phase 1,Kids,6,Sf 19,8861303428
+182,Aditri Agarwal,Swimming,Phase 1,Kids,6,Sf 19,8861303428
+182,Aditri Agarwal,Quiz,Phase 1,Kids,6,Sf 19,8861303428
+182,Aditri Agarwal,Walking,Phase 1,Kids,6,Sf 19,8861303428
+182,Aditri Agarwal,Tug of War,Phase 1,Kids,6,Sf 19,8861303428
+183,Aadhvik Pillai,Football,Phase 1,Kids,8,E-TF06,7559976451
+183,Aadhvik Pillai,Cricket,Phase 1,Kids,8,E-TF06,7559976451
+183,Aadhvik Pillai,Chess,Phase 1,Kids,8,E-TF06,7559976451
+183,Aadhvik Pillai,Quiz,Phase 1,Kids,8,E-TF06,7559976451
+183,Aadhvik Pillai,Tug of War,Phase 1,Kids,8,E-TF06,7559976451
+184,Kowsalya,nan,Phase 1,Female,29,GF21,7339616030
+184,Kowsalya,Badminton,Phase 1,Female,29,GF21,7339616030
+185,Biswajeet Patro,Carrom,Phase 2,Kids,10,D 439,9538588890
+185,Biswajeet Patro,Cricket,Phase 2,Kids,10,D 439,9538588890
+185,Biswajeet Patro,Football,Phase 2,Kids,10,D 439,9538588890
+185,Biswajeet Patro,Chess,Phase 2,Kids,10,D 439,9538588890
+185,Biswajeet Patro,Quiz,Phase 2,Kids,10,D 439,9538588890
+186,Rupika Jha,Quiz,Phase 2,Kids,11,D-141,9916094692
+186,Rupika Jha,Badminton,Phase 2,Kids,11,D-141,9916094692
+187,Asha,nan,Phase 2,Female,35,G25,9449425076
+187,Asha,Badminton,Phase 2,Female,35,G25,9449425076
+188,Devansh singh,Carrom,Phase 2,Kids,8,C331,8147424800
+189,Pranita mahapatra,nan,Phase 2,Kids,10,D block 434,9035003008
+189,Pranita mahapatra,Badminton,Phase 2,Kids,10,D block 434,9035003008
+190,Hasini,Chess,Phase 2,Kids,11,G13,7829889889
+190,Hasini,Quiz,Phase 2,Kids,11,G13,7829889889
+190,Hasini,Badminton,Phase 2,Kids,11,G13,7829889889
+191,Bhuvesh,Football,Phase 2,Kids,7,G13,7829889889
+191,Bhuvesh,Cricket,Phase 2,Kids,7,G13,7829889889
+191,Bhuvesh,Running,Phase 2,Kids,7,G13,7829889889
+192,Koushik,Running,Phase 1,Male,46,FF-12,9886861214
+192,Koushik,Football,Phase 1,Male,46,FF-12,9886861214
+192,Koushik,Tug of War,Phase 1,Male,46,FF-12,9886861214
+193,Tanvisha,nan,Phase 2,Kids,8,D144,8197233113
+193,Tanvisha,Badminton,Phase 2,Kids,8,D144,8197233113
+194,Kowsalya,Carrom,Phase 1,Female,29,GF 21,7339616030
+195,Nakshatra Jenson,Quiz,Phase 2,Kids,10,G20,9962466642
+195,Nakshatra Jenson,Chess,Phase 2,Kids,10,G20,9962466642
+196,Divya Jenson,Table Tennis,Phase 2,Female,42,G20,9962466642
+196,Divya Jenson,Walking,Phase 2,Female,42,G20,9962466642
+196,Divya Jenson,Tug of War,Phase 2,Female,42,G20,9962466642
+197,Sourabh,nan,Phase 2,Male,38,D144,8197233113
+197,Sourabh,Badminton,Phase 2,Male,38,D144,8197233113
+198,Anaya kekre,Running,Phase 1,Kids,11,Ff 42,8823868374
+198,Anaya kekre,Football,Phase 1,Kids,11,Ff 42,8823868374
+198,Anaya kekre,Walking,Phase 1,Kids,11,Ff 42,8823868374
+198,Anaya kekre,Tug of War,Phase 1,Kids,11,Ff 42,8823868374
+199,Abhik Sahoo,Football,Phase 1,Male,8,FF-02,7829307211
+200,Abhik Sahoo,Running,Phase 1,Male,8,FF-02,7829307211
+200,Abhik Sahoo,Football,Phase 1,Male,8,FF-02,7829307211
+200,Abhik Sahoo,Walking,Phase 1,Male,8,FF-02,7829307211
