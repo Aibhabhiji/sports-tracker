@@ -1,7 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.yourname.sportstracker',
+  appId: 'com.aibhabhiji.sportstracker',
   appName: 'sports-tracker',
   webDir: 'public', // or '.next' if using static export, but live URL overrides webDir execution
   server: {
