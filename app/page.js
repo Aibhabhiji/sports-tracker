@@ -5,7 +5,8 @@ import { getInitialParticipants, parseCSVParticipants } from '@/lib/participantS
 import TeamAuctionModule from '@/components/sports/TeamAuctionModule';
 import ChessCarromModule from '@/components/sports/ChessCarromModule';
 import ChessAdvancedModule from '@/components/sports/ChessAdvancedModule';
-import RaceModule from '@/components/sports/RaceModule';
+//import RaceModule from '@/components/sports/RaceModule';
+import MarathonModule from '@/components/sports/MarathonModule';
 import CricketModule from '@/components/sports/CricketModule';
 import FootballModule from '@/components/sports/FootballModule';
 import TableTennisModule from '@/components/sports/TableTennisModule';
@@ -19,7 +20,8 @@ const SPORTS_LIST = [
   { id: 'tug_of_war', name: 'Tug of War', type: 'AUCTION_TEAM' },
   { id: 'chess', name: 'Chess', type: 'ADVANCED_CHESS' },
   { id: 'carrom', name: 'Carrom', type: 'ROUND_ROBIN' },
-  { id: 'running', name: 'Running', type: 'RACE' },
+  { id: 'marathon', name: 'Marathon', type: 'MARATHON' },
+  //{ id: 'running', name: 'Running', type: 'RACE' },
   { id: 'walking', name: 'Walking', type: 'RACE' },
   { id: 'swimming', name: 'Swimming', type: 'RACE' },
   { id: 'quiz', name: 'Quiz', type: 'AUCTION_TEAM' },
@@ -419,9 +421,12 @@ export default function SanviOlympicsPortal() {
           {activeSport.type === 'AUCTION_TEAM' && activeSport.id !== 'cricket' && activeSport.id !== 'table_tennis' && activeSport.id !== 'badminton' && (
             <TeamAuctionModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
           )}
-          {activeSport.type === 'RACE' && (
-            <RaceModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
+       //   {activeSport.type === 'RACE' && (
+         //   <RaceModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+       //   )}
+	      {activeSport.type === 'MARATHON' && (
+		    <MarathonModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+		 )}
         </div>
       )}
 
