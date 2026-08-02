@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
-// Automatically connects using Vercel's Upstash Redis integration environment variables
-const redis = Redis.fromEnv();
+// Explicitly map Vercel's KV/Upstash integration environment variables
+const redis = new Redis({
+  url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
+});
+
 const STORAGE_KEY = 'sanvi_olympics_master_data';
 
 // GET: Fetches data globally from cloud storage
@@ -26,7 +30,7 @@ export async function POST(request) {
     await redis.set(STORAGE_KEY, body);
     return NextResponse.json({ success: true, message: 'Central database updated successfully in the cloud!' });
   } catch (err) {
-    console.error('Redis Write Error:', err);
+    console.error('Redis Write Error Details:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
