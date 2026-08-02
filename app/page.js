@@ -11,8 +11,6 @@ import FootballModule from '@/components/sports/FootballModule';
 import TableTennisModule from '@/components/sports/TableTennisModule';
 import BadmintonModule from '@/components/sports/BadmintonModule';
 
-const LOCAL_STORAGE_KEY = 'sanvi_olympics_master_v11';
-
 const SPORTS_LIST = [
   { id: 'cricket', name: 'Cricket', type: 'AUCTION_TEAM' },
   { id: 'football', name: 'Football', type: 'FOOTBALL_CUSTOM' },
@@ -50,47 +48,63 @@ export default function SanviOlympicsPortal() {
     { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
   ]);
 
+  // Fetch central database data on load for all users
   useEffect(() => {
-    const saved = localStorage.getItem(LOCAL_STORAGE_KEY);
-    if (saved) {
+    async function fetchCentralData() {
       try {
-        const parsed = JSON.parse(saved);
-        if (parsed.participants && parsed.participants.length > 0) {
-          setParticipants(parsed.participants);
-        } else {
-          setParticipants(getInitialParticipants());
+        const res = await fetch('/api/portal-data');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.participants && json.participants.length > 0) {
+            setParticipants(json.participants);
+          } else {
+            setParticipants(getInitialParticipants());
+          }
+          if (json.sportsData) setSportsData(json.sportsData);
+          if (json.sponsors) setSponsors(json.sponsors);
         }
-        if (parsed.sportsData) setSportsData(parsed.sportsData);
-        if (parsed.sponsors) setSponsors(parsed.sponsors);
       } catch (e) {
+        console.error('Failed to load central data, falling back to defaults', e);
         setParticipants(getInitialParticipants());
       }
-    } else {
-      setParticipants(getInitialParticipants());
+      setIsLoaded(true);
     }
-    setIsLoaded(true);
+    fetchCentralData();
   }, []);
 
-  useEffect(() => {
-    if (!isLoaded) return;
+  // Save changes centrally to the database server
+  const saveToCentralServer = async (updatedParticipants, updatedSportsData, updatedSponsors) => {
     try {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ participants, sportsData, sponsors }));
+      const res = await fetch('/api/portal-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participants: updatedParticipants,
+          sportsData: updatedSportsData,
+          sponsors: updatedSponsors,
+        }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to save to server database.');
+      }
     } catch (e) {
-      console.error('LocalStorage quota exceeded:', e);
-      alert('⚠️ Storage Limit Reached: The uploaded image files are too large to be saved in browser storage. Please upload smaller compressed images or use JSON Backups.');
+      console.error('Server sync error:', e);
+      alert('⚠️ Error syncing with the central database server.');
     }
-  }, [participants, sportsData, sponsors, isLoaded]);
+  };
 
   const currentSportState = sportsData[activeSport.id] || {};
 
   const updateSportState = (updatedFields) => {
-    setSportsData((prev) => ({
-      ...prev,
+    const updatedSportsData = {
+      ...sportsData,
       [activeSport.id]: {
         ...currentSportState,
         ...updatedFields,
       },
-    }));
+    };
+    setSportsData(updatedSportsData);
+    saveToCentralServer(participants, updatedSportsData, sponsors);
   };
 
   const filteredParticipants = participants.filter((p) => {
@@ -114,7 +128,8 @@ export default function SanviOlympicsPortal() {
       const parsed = parseCSVParticipants(text);
       if (parsed.length > 0) {
         setParticipants(parsed);
-        alert(`Successfully imported ${parsed.length} registration records! Saved to persistent storage.`);
+        saveToCentralServer(parsed, sportsData, sponsors);
+        alert(`Successfully imported ${parsed.length} registration records and saved to central database!`);
       } else {
         alert('Could not parse CSV.');
       }
@@ -139,10 +154,16 @@ export default function SanviOlympicsPortal() {
     reader.onload = (event) => {
       try {
         const backup = JSON.parse(event.target.result);
-        if (backup.participants) setParticipants(backup.participants);
-        if (backup.sportsData) setSportsData(backup.sportsData);
-        if (backup.sponsors) setSponsors(backup.sponsors);
-        alert('Database restored successfully from backup!');
+        const newParts = backup.participants || participants;
+        const newSports = backup.sportsData || sportsData;
+        const newSponsors = backup.sponsors || sponsors;
+
+        if (backup.participants) setParticipants(newParts);
+        if (backup.sportsData) setSportsData(newSports);
+        if (backup.sponsors) setSponsors(newSponsors);
+
+        saveToCentralServer(newParts, newSports, newSponsors);
+        alert('Database restored successfully from backup and synced centrally!');
       } catch (err) {
         alert('Invalid backup JSON file.');
       }
@@ -153,12 +174,8 @@ export default function SanviOlympicsPortal() {
   const handleResetGameData = () => {
     if (window.confirm('Are you sure you want to reset all transaction and game data? This will clear all match fixtures, team setups, and scores across all sports.')) {
       setSportsData({});
-      try {
-        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify({ participants, sportsData: {}, sponsors }));
-      } catch (e) {
-        console.error(e);
-      }
-      alert('All transactional game data has been reset successfully.');
+      saveToCentralServer(participants, {}, sponsors);
+      alert('All transactional game data has been reset centrally.');
     }
   };
 
@@ -496,7 +513,13 @@ export default function SanviOlympicsPortal() {
             </div>
 
             <div className="flex justify-end pt-4 border-t border-slate-100">
-              <button onClick={() => setIsConfiguringSponsors(false)} className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-2.5 rounded-xl text-xs shadow transition">
+              <button 
+                onClick={() => {
+                  saveToCentralServer(participants, sportsData, sponsors);
+                  setIsConfiguringSponsors(false);
+                }} 
+                className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-2.5 rounded-xl text-xs shadow transition"
+              >
                 Save & Apply Changes
               </button>
             </div>
