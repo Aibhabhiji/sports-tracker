@@ -421,12 +421,9 @@ export default function SanviOlympicsPortal() {
           {activeSport.type === 'AUCTION_TEAM' && activeSport.id !== 'cricket' && activeSport.id !== 'table_tennis' && activeSport.id !== 'badminton' && (
             <TeamAuctionModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
           )}
-       //   {activeSport.type === 'RACE' && (
-         //   <RaceModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-       //   )}
-	      {activeSport.type === 'MARATHON' && (
-		    <MarathonModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-		 )}
+          {activeSport.type === 'MARATHON' && (
+            <MarathonModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+          )}
         </div>
       )}
 
