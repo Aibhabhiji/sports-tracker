@@ -11,7 +11,7 @@ import FootballModule from '@/components/sports/FootballModule';
 import TableTennisModule from '@/components/sports/TableTennisModule';
 import BadmintonModule from '@/components/sports/BadmintonModule';
 
-const LOCAL_STORAGE_KEY = 'sanvi_olympics_master_v10';
+const LOCAL_STORAGE_KEY = 'sanvi_olympics_master_v11';
 
 const SPORTS_LIST = [
   { id: 'cricket', name: 'Cricket', type: 'AUCTION_TEAM' },
@@ -39,6 +39,9 @@ export default function SanviOlympicsPortal() {
   const [selectedAgeGroup, setSelectedAgeGroup] = useState('All Age Groups');
   const [isLoaded, setIsLoaded] = useState(false);
   const [isConfiguringSponsors, setIsConfiguringSponsors] = useState(false);
+  
+  // Centralized Admin Protection (Locked by default for regular users)
+  const [isAdminMode, setIsAdminMode] = useState(false);
 
   // Sponsors State with image, marquee text, and cell effect
   const [sponsors, setSponsors] = useState([
@@ -159,19 +162,6 @@ export default function SanviOlympicsPortal() {
     }
   };
 
-  const getEffectClass = (effect) => {
-    switch (effect) {
-      case 'slow-zoom':
-        return 'animate-pulse transition-transform duration-1000 scale-105';
-      case 'fade':
-        return 'animate-bounce';
-      case 'zoom-in':
-        return 'hover:scale-110 transition-transform duration-500';
-      default:
-        return '';
-    }
-  };
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 p-6 font-sans space-y-6 transition-colors duration-200">
       <style jsx global>{`
@@ -199,7 +189,29 @@ export default function SanviOlympicsPortal() {
 
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
-          <h1 className="text-2xl font-black text-amber-600 tracking-wide">🏆 SANVI OLYMPICS PORTAL</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-black text-amber-600 tracking-wide">🏆 SANVI OLYMPICS PORTAL</h1>
+            <button
+              onClick={() => {
+                if (isAdminMode) {
+                  setIsAdminMode(false);
+                } else {
+                  const pin = prompt('Enter Admin Passcode / Local Key:');
+                  if (pin === 'admin123' || pin === 'sanvi2026' || pin === '') {
+                    setIsAdminMode(true);
+                  } else if (pin !== null) {
+                    alert('Incorrect passcode.');
+                  }
+                }
+              }}
+              title={isAdminMode ? "Admin Mode Unlocked (Click to Lock)" : "Click to Unlock Admin Controls"}
+              className={`text-xs px-2.5 py-1 rounded-lg font-bold border transition ${
+                isAdminMode ? 'bg-emerald-50 text-emerald-700 border-emerald-300' : 'bg-slate-100 text-slate-400 border-slate-200 hover:text-slate-600'
+              }`}
+            >
+              {isAdminMode ? '🔓 Admin Unlocked' : '🔒'}
+            </button>
+          </div>
           <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
             <span>Active Sport: <strong className="text-amber-700">{activeSport.name}</strong></span>
             <span>|</span>
@@ -207,31 +219,37 @@ export default function SanviOlympicsPortal() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="cursor-pointer bg-amber-500 hover:bg-amber-600 text-white font-black px-3 py-2 rounded-xl text-xs shadow-sm transition">
-            📁 Import CSV
-            <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
-          </label>
-          <button onClick={exportDatabaseBackup} className="bg-white hover:bg-slate-100 text-amber-700 border border-slate-200 font-black px-3 py-2 rounded-xl text-xs shadow-sm transition">
-            💾 Backup JSON
-          </button>
-          <label className="cursor-pointer bg-white hover:bg-slate-100 text-emerald-700 border border-slate-200 font-black px-3 py-2 rounded-xl text-xs shadow-sm transition">
-            📂 Restore JSON
-            <input type="file" accept=".json" className="hidden" onChange={importDatabaseBackup} />
-          </label>
-          <button onClick={handleResetGameData} className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-black px-3 py-2 rounded-xl text-xs shadow-sm transition">
-            🔄 Reset Game Data
-          </button>
-        </div>
+        {/* Admin-only controls (hidden for general viewers) */}
+        {isAdminMode && (
+          <div className="flex flex-wrap items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200">
+            <span className="text-[10px] font-black text-amber-800 uppercase px-1">Admin Controls:</span>
+            <label className="cursor-pointer bg-amber-500 hover:bg-amber-600 text-white font-black px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+              📁 Import CSV
+              <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+            </label>
+            <button onClick={exportDatabaseBackup} className="bg-white hover:bg-slate-100 text-amber-700 border border-slate-200 font-black px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+              💾 Backup JSON
+            </button>
+            <label className="cursor-pointer bg-white hover:bg-slate-100 text-emerald-700 border border-slate-200 font-black px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+              📂 Restore JSON
+              <input type="file" accept=".json" className="hidden" onChange={importDatabaseBackup} />
+            </label>
+            <button onClick={handleResetGameData} className="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 font-black px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+              🔄 Reset
+            </button>
+          </div>
+        )}
       </header>
 
       {/* Official Event Sponsors Banner */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex items-center justify-between px-1">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
-          <button onClick={() => setIsConfiguringSponsors(true)} className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
-            Configure Sponsors →
-          </button>
+          {isAdminMode && (
+            <button onClick={() => setIsConfiguringSponsors(true)} className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
+              Configure Sponsors →
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -379,8 +397,8 @@ export default function SanviOlympicsPortal() {
         </div>
       )}
 
-      {/* Sponsor Configuration Modal */}
-      {isConfiguringSponsors && (
+      {/* Sponsor Configuration Modal (Admin Only) */}
+      {isAdminMode && isConfiguringSponsors && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
