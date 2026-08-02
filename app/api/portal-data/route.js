@@ -1,44 +1,32 @@
-import { NextResponse } from 'server/response'; // or standard Next.js Response
-import fs from 'fs';
-import path from 'path';
+import { NextResponse } from 'next/server';
+import { Redis } from '@upstash/redis';
 
-// Path to a shared server-side data file (or replace this with Prisma / SQLite / MongoDB client)
-const dataFilePath = path.join(process.cwd(), 'central_olympics_db.json');
+// Automatically connects using Vercel's Upstash Redis integration environment variables
+const redis = Redis.fromEnv();
+const STORAGE_KEY = 'sanvi_olympics_master_data';
 
-// Helper to read data
-function readCentralData() {
-  try {
-    if (fs.existsSync(dataFilePath)) {
-      const fileData = fs.readFileSync(dataFilePath, 'utf8');
-      return JSON.parse(fileData);
-    }
-  } catch (err) {
-    console.error('Error reading central DB:', err);
-  }
-  return null;
-}
-
-// Helper to write data
-function writeCentralData(data) {
-  fs.writeFileSync(dataFilePath, JSON.stringify(data, null, 2), 'utf8');
-}
-
-// GET: Fetches data for ALL users globally
+// GET: Fetches data globally from cloud storage
 export async function GET() {
-  const data = readCentralData();
-  if (!data) {
-    return NextResponse.json({ participants: [], sportsData: {}, sponsors: [] });
+  try {
+    const data = await redis.get(STORAGE_KEY);
+    if (!data) {
+      return NextResponse.json({ participants: [], sportsData: {}, sponsors: [] });
+    }
+    return NextResponse.json(data);
+  } catch (err) {
+    console.error('Redis Read Error:', err);
+    return NextResponse.json({ participants: [], sportsData: {}, sponsors: [] }, { status: 500 });
   }
-  return NextResponse.json(data);
 }
 
-// POST: Updates data centrally (Only allowed when admin saves/imports)
+// POST: Updates data centrally in cloud storage (Admin only)
 export async function POST(request) {
   try {
     const body = await request.json();
-    writeCentralData(body);
-    return NextResponse.json({ success: true, message: 'Central database updated successfully!' });
+    await redis.set(STORAGE_KEY, body);
+    return NextResponse.json({ success: true, message: 'Central database updated successfully in the cloud!' });
   } catch (err) {
+    console.error('Redis Write Error:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
