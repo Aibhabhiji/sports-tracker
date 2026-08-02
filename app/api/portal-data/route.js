@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
-// Explicitly map Vercel's KV/Upstash integration environment variables
+// Connect using STORAGE prefix (or fallback to KV / Upstash variables)
 const redis = new Redis({
-  url: process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
+  url: process.env.STORAGE_REST_API_URL || process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
+  token: process.env.STORAGE_REST_API_TOKEN || process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
 });
 
 const STORAGE_KEY = 'sanvi_olympics_master_data';
