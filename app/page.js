@@ -49,6 +49,7 @@ export default function SanviOlympicsPortal() {
   ]);
 
   // Fetch central database data on load for all users
+  // Fetch central database data on load for all users
   useEffect(() => {
     async function fetchCentralData() {
       try {
@@ -61,7 +62,17 @@ export default function SanviOlympicsPortal() {
             setParticipants(getInitialParticipants());
           }
           if (json.sportsData) setSportsData(json.sportsData);
-          if (json.sponsors) setSponsors(json.sponsors);
+          
+          // Safe fallback for sponsors if empty or missing
+          if (json.sponsors && json.sponsors.length > 0) {
+            setSponsors(json.sponsors);
+          } else {
+            setSponsors([
+              { id: '1', title: 'Sponsor 1', image: null, text: '', effect: 'none' },
+              { id: '2', title: 'Sponsor 2', image: null, text: '', effect: 'none' },
+              { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
+            ]);
+          }
         }
       } catch (e) {
         console.error('Failed to load central data, falling back to defaults', e);
