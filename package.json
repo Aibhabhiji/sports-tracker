@@ -13,6 +13,8 @@
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0",
     "@capacitor/ios": "^8.5.0",
+    "@upstash/redis": "^1.38.1",
+    "@vercel/kv": "^3.0.0",
     "mysql2": "^3.23.2",
     "next": "16.2.12",
     "papaparse": "^5.5.4",
