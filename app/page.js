@@ -128,15 +128,59 @@ export default function SanviOlympicsPortal() {
     });
   };
 
+  // Dynamic Filtering Logic with Age Range and Phase Normalization
   const filteredParticipants = participants.filter((p) => {
     const pSport = p.gameChoice || p.sport || '';
-    const pAgeGroup = p.ageGroup || p.age || '';
-
     const matchGame = !filterByGameChoice || pSport.trim().toLowerCase() === activeSport.name.trim().toLowerCase();
-    const matchPhase = selectedPhase === 'All Phases' || p.phase === selectedPhase;
-    const matchCat = selectedCategory === 'All Categories' || p.category === selectedCategory;
-    const matchAge = selectedAgeGroup === 'All Age Groups' || pAgeGroup.toString().trim().toLowerCase() === selectedAgeGroup.trim().toLowerCase();
-    
+
+    // 1. Flexible Phase Filter Matching
+    const rawPhase = (p.phase || p.Phase || p['Phase'] || p['phase'] || '').toString().trim();
+    const matchPhase = (() => {
+      if (selectedPhase === 'All Phases') return true;
+      if (!rawPhase) return false;
+      const normRaw = rawPhase.toLowerCase();
+      const normSel = selectedPhase.toLowerCase();
+      if (normRaw === normSel) return true;
+      const selNum = normSel.replace(/\D+/g, '');
+      const rawNum = normRaw.replace(/\D+/g, '');
+      if (selNum && rawNum && selNum === rawNum) return true;
+      return normRaw.includes(normSel) || normSel.includes(normRaw);
+    })();
+
+    // 2. Flexible Category Filter Matching
+    const rawCat = (p.category || p.Category || '').toString().trim().toLowerCase();
+    const matchCat = selectedCategory === 'All Categories' || rawCat === selectedCategory.toLowerCase();
+
+    // 3. Robust Age Group Filter Matching (Calculates ranges & parses text)
+    const rawAgeVal = p.age ?? p.Age ?? p.ageGroup ?? p.AgeGroup ?? p['Age Group'] ?? p['Age'] ?? '';
+    const rawAgeStr = rawAgeVal.toString().trim().toLowerCase();
+
+    const matchAge = (() => {
+      if (selectedAgeGroup === 'All Age Groups') return true;
+      if (!rawAgeStr) return false;
+
+      // Direct string match fallback
+      if (rawAgeStr === selectedAgeGroup.trim().toLowerCase()) return true;
+
+      // Numeric extraction & age range evaluation
+      const ageNumMatch = rawAgeStr.match(/\d+/);
+      if (ageNumMatch) {
+        const num = parseInt(ageNumMatch[0], 10);
+        if (selectedAgeGroup === 'Under 12 Kids') return num < 12;
+        if (selectedAgeGroup === '12 - 17 years Teens') return num >= 12 && num <= 17;
+        if (selectedAgeGroup === '18 - 55 years Adults') return num >= 18 && num <= 55;
+        if (selectedAgeGroup === '55+ years Seniors') return num >= 55;
+      }
+
+      // Keyword fallback
+      if (selectedAgeGroup === 'Under 12 Kids') return rawAgeStr.includes('kids') || rawAgeStr.includes('under 12');
+      if (selectedAgeGroup === '12 - 17 years Teens') return rawAgeStr.includes('teen');
+      if (selectedAgeGroup === '18 - 55 years Adults') return rawAgeStr.includes('adult');
+      if (selectedAgeGroup === '55+ years Seniors') return rawAgeStr.includes('senior');
+
+      return false;
+    })();
+
     return matchGame && matchPhase && matchCat && matchAge;
   });
 
