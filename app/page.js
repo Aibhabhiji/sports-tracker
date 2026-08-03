@@ -89,7 +89,7 @@ export default function SanviOlympicsPortal() {
   const verifyAdminAndExecute = (actionCallback) => {
     if (!isAdminMode) {
       const pin = prompt('🔒 Admin Password Required to Edit/Save Changes:\n(Enter admin passcode)');
-      if (pin === 'sanviolympics26' || pin === 'sanvi2026'|| pin === '') {
+      if (pin === 'admin123' || pin === 'sanvi2026') {
         setIsAdminMode(true);
         actionCallback();
       } else if (pin !== null) {
@@ -350,7 +350,7 @@ export default function SanviOlympicsPortal() {
               <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 flex flex-col justify-between relative shadow-sm p-2">
                 <div className={`w-full h-20 flex items-center justify-center overflow-hidden ${effectClass}`}>
                   {sponsor.image ? (
-                    <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain" />
+                    <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-cover" />
                   ) : (
                     <span className="text-xs text-slate-400 font-bold">{sponsor.title}</span>
                   )}
@@ -519,7 +519,7 @@ export default function SanviOlympicsPortal() {
 
                   <div className="w-full h-28 bg-white border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center relative shadow-inner p-2">
                     {sponsor.image ? (
-                      <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain" />
+                      <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-xs text-slate-400 font-medium">No Image Set</span>
                     )}
