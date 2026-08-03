@@ -1,46 +1,90 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function BadmintonModule({ participants = [], sportState = {}, onUpdateSportState }) {
-  // Format state: 'singles', 'doubles', 'mixed_doubles'
+  // Extract format: 'singles', 'doubles', 'mixed_doubles'
   const gameFormat = sportState.gameFormat || 'singles';
-  const activeSubTab = sportState.activeSubTab || 'teams'; // 'teams', 'matches', 'leaderboard'
 
-  // Persistent arrays stored in central sportState
-  const teams = sportState.teams || []; // Format: { id, name, p1, p2, genderType }
-  const matches = sportState.matches || []; // Format: { id, team1, team2, score1, score2, winner, status, format }
+  // Synchronized Local State to prevent state loss during browser alert blocks
+  const [localSubTab, setLocalSubTab] = useState(sportState.activeSubTab || 'teams');
+  const [localMatches, setLocalMatches] = useState(sportState.matches || []);
+  const [localTeams, setLocalTeams] = useState(sportState.teams || []);
 
-  // Local selection states for pair creation / manual match creation
-  const [selectedP1, setSelectedP1] = useState('');
-  const [selectedP2, setSelectedP2] = useState('');
-  const [selectedTeam1, setSelectedTeam1] = useState('');
-  const [selectedTeam2, setSelectedTeam2] = useState('');
+  // Sync state with parent props when sportState updates
+  useEffect(() => {
+    if (sportState.activeSubTab) setLocalSubTab(sportState.activeSubTab);
+    if (sportState.matches) setLocalMatches(sportState.matches);
+    if (sportState.teams) setLocalTeams(sportState.teams);
+  }, [sportState.activeSubTab, sportState.matches, sportState.teams]);
 
-  // Helper to normalize and extract participant gender
+  // Unified single-dispatch function to prevent state overwrites in parent
+  const updateParentAndLocal = (updatedFields) => {
+    if (updatedFields.activeSubTab !== undefined) setLocalSubTab(updatedFields.activeSubTab);
+    if (updatedFields.matches !== undefined) setLocalMatches(updatedFields.matches);
+    if (updatedFields.teams !== undefined) setLocalTeams(updatedFields.teams);
+    if (updatedFields.gameFormat !== undefined) {
+      // Keep format updated
+    }
+
+    if (onUpdateSportState) {
+      onUpdateSportState({
+        ...sportState,
+        ...updatedFields,
+      });
+    }
+  };
+
+  // Helper to extract player name from any data structure
+  const getPlayerName = (p) => {
+    if (!p) return 'Player';
+    return (
+      p.name ||
+      p.Name ||
+      p.participantName ||
+      p.fullName ||
+      p['Participant Name'] ||
+      p.playerName ||
+      `Participant #${p.id || p.regId || ''}`
+    );
+  };
+
+  // Helper to normalize and extract participant gender accurately
   const getParticipantGender = (p) => {
-    if (!p) return 'Unknown';
-    const rawCategory = (p.category || p.Category || p.gender || p.Gender || '').toString().toLowerCase();
-    if (rawCategory.includes('female') || rawCategory.includes('women') || rawCategory.includes('girl')) {
+    if (!p) return 'Female';
+    const str = (
+      p.category ||
+      p.Category ||
+      p.gender ||
+      p.Gender ||
+      JSON.stringify(p)
+    )
+      .toString()
+      .toLowerCase();
+
+    if (str.includes('female') || str.includes('women') || str.includes('girl') || str === 'f') {
       return 'Female';
     }
-    if (rawCategory.includes('male') || rawCategory.includes('men') || rawCategory.includes('boy')) {
+    if (str.includes('male') || str.includes('men') || str.includes('boy') || str === 'm') {
       return 'Male';
     }
-    return 'Male'; // Default fallback if unspecified
+    return 'Female'; // Default fallback
   };
 
   const setGameFormat = (format) => {
-    onUpdateSportState({ gameFormat: format });
+    updateParentAndLocal({ gameFormat: format });
   };
 
   const setSubTab = (tab) => {
-    onUpdateSportState({ activeSubTab: tab });
+    updateParentAndLocal({ activeSubTab: tab });
   };
 
   // ==========================================
-  // VALIDATION & PAIR / TEAM CREATION LOGIC
+  // PAIR / TEAM CREATION WITH VALIDATION
   // ==========================================
+  const [selectedP1, setSelectedP1] = useState('');
+  const [selectedP2, setSelectedP2] = useState('');
+
   const handleCreatePair = () => {
     if (!selectedP1 || !selectedP2) {
       alert('⚠️ Please select two participants to create a pair.');
@@ -52,8 +96,8 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
       return;
     }
 
-    const p1Obj = participants.find((p) => (p.id || p.regId || p.Registration_ID) === selectedP1);
-    const p2Obj = participants.find((p) => (p.id || p.regId || p.Registration_ID) === selectedP2);
+    const p1Obj = participants.find((p) => String(p.id || p.regId || p.Registration_ID) === String(selectedP1));
+    const p2Obj = participants.find((p) => String(p.id || p.regId || p.Registration_ID) === String(selectedP2));
 
     if (!p1Obj || !p2Obj) {
       alert('⚠️ Invalid participant selection.');
@@ -63,69 +107,68 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
     const g1 = getParticipantGender(p1Obj);
     const g2 = getParticipantGender(p2Obj);
 
-    // Strict Validation Check 1: Doubles (Male-Male or Female-Female)
+    // Validation Check 1: Doubles (Male-Male or Female-Female)
     if (gameFormat === 'doubles') {
       if (g1 !== g2) {
         alert(
-          `❌ GENDER VALIDATION ERROR:\n\nRegular Doubles requires same-gender pairs (Male+Male or Female+Female).\n\nSelected Players: ${p1Obj.name} (${g1}) & ${p2Obj.name} (${g2}).\n\nFor mixed male-female pairs, please switch to "Mixed Doubles".`
+          `❌ GENDER VALIDATION ERROR:\n\nRegular Doubles requires same-gender pairs (Male+Male or Female+Female).\n\nSelected Players: ${getPlayerName(p1Obj)} (${g1}) & ${getPlayerName(p2Obj)} (${g2}).\n\nFor mixed male-female pairs, please select "Mixed Doubles".`
         );
         return;
       }
     }
 
-    // Strict Validation Check 2: Mixed Doubles (1 Male + 1 Female)
+    // Validation Check 2: Mixed Doubles (1 Male + 1 Female)
     if (gameFormat === 'mixed_doubles') {
       const isMixed = (g1 === 'Male' && g2 === 'Female') || (g1 === 'Female' && g2 === 'Male');
       if (!isMixed) {
         alert(
-          `❌ GENDER VALIDATION ERROR:\n\nMixed Doubles requires exactly 1 Male and 1 Female player.\n\nSelected Players: ${p1Obj.name} (${g1}) & ${p2Obj.name} (${g2}).`
+          `❌ GENDER VALIDATION ERROR:\n\nMixed Doubles requires exactly 1 Male and 1 Female player.\n\nSelected Players: ${getPlayerName(p1Obj)} (${g1}) & ${getPlayerName(p2Obj)} (${g2}).`
         );
         return;
       }
     }
 
     const newTeam = {
-      id: `pair_${Date.now()}`,
-      name: `${p1Obj.name} & ${p2Obj.name}`,
+      id: `pair_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      name: `${getPlayerName(p1Obj)} & ${getPlayerName(p2Obj)}`,
       p1: p1Obj,
       p2: p2Obj,
       genderType: gameFormat === 'mixed_doubles' ? 'Mixed' : g1,
       format: gameFormat,
     };
 
-    const updatedTeams = [...teams, newTeam];
-    onUpdateSportState({ teams: updatedTeams });
+    const updatedTeams = [...localTeams, newTeam];
+    updateParentAndLocal({ teams: updatedTeams });
     setSelectedP1('');
     setSelectedP2('');
     alert(`✅ Pair successfully created: ${newTeam.name}`);
   };
 
-  // Delete Pair / Team
   const handleDeleteTeam = (teamId) => {
-    const updated = teams.filter((t) => t.id !== teamId);
-    onUpdateSportState({ teams: updated });
+    const updated = localTeams.filter((t) => t.id !== teamId);
+    updateParentAndLocal({ teams: updated });
   };
 
   // ==========================================
-  // MATCH DRAW GENERATOR & VALIDATION
+  // DRAW GENERATOR (PERSISTENT FIX)
   // ==========================================
   const handleGenerateDraws = () => {
-    let newMatches = [...matches];
+    let createdFixtures = [...localMatches];
 
     if (gameFormat === 'singles') {
       const males = participants.filter((p) => getParticipantGender(p) === 'Male');
       const females = participants.filter((p) => getParticipantGender(p) === 'Female');
 
-      let generatedCount = 0;
+      let matchCount = 0;
 
-      // Generate Male Singles Fixtures
+      // Male Singles Fixtures
       for (let i = 0; i < males.length - 1; i += 2) {
         const p1 = males[i];
         const p2 = males[i + 1];
-        newMatches.push({
-          id: `m_${Date.now()}_${i}`,
-          team1Name: p1.name,
-          team2Name: p2.name,
+        createdFixtures.push({
+          id: `match_m_${Date.now()}_${i}`,
+          team1Name: getPlayerName(p1),
+          team2Name: getPlayerName(p2),
           score1: 0,
           score2: 0,
           winner: null,
@@ -133,17 +176,17 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
           format: 'singles',
           genderCategory: 'Male Singles',
         });
-        generatedCount++;
+        matchCount++;
       }
 
-      // Generate Female Singles Fixtures
+      // Female Singles Fixtures
       for (let i = 0; i < females.length - 1; i += 2) {
         const p1 = females[i];
         const p2 = females[i + 1];
-        newMatches.push({
-          id: `m_${Date.now()}_f_${i}`,
-          team1Name: p1.name,
-          team2Name: p2.name,
+        createdFixtures.push({
+          id: `match_f_${Date.now()}_${i}`,
+          team1Name: getPlayerName(p1),
+          team2Name: getPlayerName(p2),
           score1: 0,
           score2: 0,
           winner: null,
@@ -151,32 +194,32 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
           format: 'singles',
           genderCategory: 'Female Singles',
         });
-        generatedCount++;
+        matchCount++;
       }
 
-      if (generatedCount === 0) {
-        alert('⚠️ Not enough participants in the active filter to form 1v1 singles draws.');
+      if (matchCount === 0) {
+        alert('⚠️ Need at least 2 participants of the same gender in the active filter to generate singles draws.');
         return;
       }
     } else {
-      // Doubles or Mixed Doubles
-      const eligibleTeams = teams.filter((t) => t.format === gameFormat);
+      // Doubles & Mixed Doubles
+      const eligibleTeams = localTeams.filter((t) => t.format === gameFormat);
       if (eligibleTeams.length < 2) {
         alert(`⚠️ You need at least 2 formed pairs under ${gameFormat.replace('_', ' ').toUpperCase()} to generate draws.`);
         return;
       }
 
+      let matchCount = 0;
       for (let i = 0; i < eligibleTeams.length - 1; i += 2) {
         const t1 = eligibleTeams[i];
         const t2 = eligibleTeams[i + 1];
 
-        // Ensure same-gender team matching in regular doubles
         if (gameFormat === 'doubles' && t1.genderType !== t2.genderType) {
-          continue; // Skip invalid cross-gender team match
+          continue; // Prevent cross-gender pairing in regular doubles
         }
 
-        newMatches.push({
-          id: `m_${Date.now()}_${i}`,
+        createdFixtures.push({
+          id: `match_d_${Date.now()}_${i}`,
           team1Name: t1.name,
           team2Name: t2.name,
           score1: 0,
@@ -186,17 +229,29 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
           format: gameFormat,
           genderCategory: t1.genderType === 'Mixed' ? 'Mixed Doubles' : `${t1.genderType} Doubles`,
         });
+        matchCount++;
+      }
+
+      if (matchCount === 0) {
+        alert('⚠️ No valid team match pairings could be created with current formed pairs.');
+        return;
       }
     }
 
-    onUpdateSportState({ matches: newMatches });
-    setSubTab('matches');
-    alert('✅ Tournament draws created according to gender and age-group segregation rules!');
+    // Single unified dispatch to persist matches and switch tab simultaneously
+    updateParentAndLocal({
+      matches: createdFixtures,
+      activeSubTab: 'matches',
+    });
+
+    setTimeout(() => {
+      alert('✅ Tournament draws created according to gender and age-group segregation rules!');
+    }, 50);
   };
 
-  // Update Match Scores
+  // Score Management
   const handleScoreChange = (matchId, s1, s2) => {
-    const updated = matches.map((m) => {
+    const updated = localMatches.map((m) => {
       if (m.id === matchId) {
         const score1 = parseInt(s1, 10) || 0;
         const score2 = parseInt(s2, 10) || 0;
@@ -216,18 +271,18 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
       return m;
     });
 
-    onUpdateSportState({ matches: updated });
+    updateParentAndLocal({ matches: updated });
   };
 
   const handleClearMatches = () => {
     if (window.confirm('Are you sure you want to clear all Badminton fixtures?')) {
-      onUpdateSportState({ matches: [] });
+      updateParentAndLocal({ matches: [] });
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Top Controls Box */}
+      {/* Top Header & Game Format Selector */}
       <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
@@ -238,7 +293,6 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
           </p>
         </div>
 
-        {/* Game Format Selector */}
         <div className="flex items-center gap-3">
           <label className="text-xs font-bold text-slate-600">Game Format:</label>
           <select
@@ -253,33 +307,33 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
+      {/* Sub Tabs */}
       <div className="flex gap-2 border-b border-slate-200 pb-2">
         <button
           onClick={() => setSubTab('teams')}
           className={`px-4 py-2 rounded-xl text-xs font-black transition ${
-            activeSubTab === 'teams'
+            localSubTab === 'teams'
               ? 'bg-amber-500 text-white shadow-sm'
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
           }`}
         >
-          {gameFormat === 'singles' ? `🏸 Players (${participants.length})` : `👥 Formed Pairs (${teams.length})`}
+          {gameFormat === 'singles' ? `🏸 Players (${participants.length})` : `👥 Formed Pairs (${localTeams.length})`}
         </button>
 
         <button
           onClick={() => setSubTab('matches')}
           className={`px-4 py-2 rounded-xl text-xs font-black transition ${
-            activeSubTab === 'matches'
+            localSubTab === 'matches'
               ? 'bg-amber-500 text-white shadow-sm'
               : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
           }`}
         >
-          ⚔️ Matches & Scoring ({matches.length})
+          ⚔️ Matches & Scoring ({localMatches.length})
         </button>
       </div>
 
-      {/* TAB 1: TEAMS & PAIR FORMATION */}
-      {activeSubTab === 'teams' && (
+      {/* TAB 1: TEAMS / PLAYERS */}
+      {localSubTab === 'teams' && (
         <div className="space-y-6">
           {(gameFormat === 'doubles' || gameFormat === 'mixed_doubles') && (
             <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-5 space-y-4">
@@ -301,7 +355,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
                       const gender = getParticipantGender(p);
                       return (
                         <option key={id} value={id}>
-                          {p.name} ({gender} • {p.flat || p.Flat || 'N/A'})
+                          {getPlayerName(p)} ({gender})
                         </option>
                       );
                     })}
@@ -321,7 +375,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
                       const gender = getParticipantGender(p);
                       return (
                         <option key={id} value={id}>
-                          {p.name} ({gender} • {p.flat || p.Flat || 'N/A'})
+                          {getPlayerName(p)} ({gender})
                         </option>
                       );
                     })}
@@ -343,7 +397,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
           {/* Formed Pairs List */}
           {(gameFormat === 'doubles' || gameFormat === 'mixed_doubles') && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {teams
+              {localTeams
                 .filter((t) => t.format === gameFormat)
                 .map((t) => (
                   <div key={t.id} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm flex justify-between items-center">
@@ -364,7 +418,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
             </div>
           )}
 
-          {/* Action Bar */}
+          {/* Draw Generation Button */}
           <div className="flex justify-between items-center pt-2">
             <button
               onClick={handleGenerateDraws}
@@ -377,11 +431,11 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
       )}
 
       {/* TAB 2: MATCHES & SCORING */}
-      {activeSubTab === 'matches' && (
+      {localSubTab === 'matches' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-xs font-bold text-slate-600">Total Fixtures: {matches.length}</span>
-            {matches.length > 0 && (
+            <span className="text-xs font-bold text-slate-600">Total Fixtures: {localMatches.length}</span>
+            {localMatches.length > 0 && (
               <button
                 onClick={handleClearMatches}
                 className="text-xs text-red-600 hover:underline font-bold"
@@ -392,7 +446,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {matches.map((m) => (
+            {localMatches.map((m) => (
               <div key={m.id} className="bg-white border border-slate-200 p-4 rounded-xl shadow-sm space-y-3">
                 <div className="flex justify-between items-center text-[11px] border-b border-slate-100 pb-2">
                   <span className="font-black text-amber-700">{m.genderCategory || 'Badminton Match'}</span>
