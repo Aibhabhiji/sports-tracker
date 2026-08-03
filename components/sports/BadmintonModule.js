@@ -23,9 +23,6 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
     if (updatedFields.activeSubTab !== undefined) setLocalSubTab(updatedFields.activeSubTab);
     if (updatedFields.matches !== undefined) setLocalMatches(updatedFields.matches);
     if (updatedFields.teams !== undefined) setLocalTeams(updatedFields.teams);
-    if (updatedFields.gameFormat !== undefined) {
-      // Keep format updated
-    }
 
     if (onUpdateSportState) {
       onUpdateSportState({
@@ -80,11 +77,35 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
   };
 
   // ==========================================
-  // PAIR / TEAM CREATION WITH VALIDATION
+  // EXCLUSION & AVAILABILITY FILTER LOGIC
   // ==========================================
   const [selectedP1, setSelectedP1] = useState('');
   const [selectedP2, setSelectedP2] = useState('');
 
+  // Collect IDs of players who are already in a formed pair
+  const assignedPlayerIds = new Set();
+  localTeams.forEach((t) => {
+    const p1Id = t.p1?.id || t.p1?.regId || t.p1?.Registration_ID;
+    const p2Id = t.p2?.id || t.p2?.regId || t.p2?.Registration_ID;
+    if (p1Id) assignedPlayerIds.add(String(p1Id));
+    if (p2Id) assignedPlayerIds.add(String(p2Id));
+  });
+
+  // Filter available participants for Player 1 Dropdown
+  const availableForP1 = participants.filter((p) => {
+    const id = String(p.id || p.regId || p.Registration_ID);
+    return !assignedPlayerIds.has(id) && id !== String(selectedP2);
+  });
+
+  // Filter available participants for Player 2 Dropdown
+  const availableForP2 = participants.filter((p) => {
+    const id = String(p.id || p.regId || p.Registration_ID);
+    return !assignedPlayerIds.has(id) && id !== String(selectedP1);
+  });
+
+  // ==========================================
+  // PAIR / TEAM CREATION WITH VALIDATION
+  // ==========================================
   const handleCreatePair = () => {
     if (!selectedP1 || !selectedP2) {
       alert('⚠️ Please select two participants to create a pair.');
@@ -150,7 +171,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
   };
 
   // ==========================================
-  // DRAW GENERATOR (PERSISTENT FIX)
+  // DRAW GENERATOR
   // ==========================================
   const handleGenerateDraws = () => {
     let createdFixtures = [...localMatches];
@@ -238,7 +259,6 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
       }
     }
 
-    // Single unified dispatch to persist matches and switch tab simultaneously
     updateParentAndLocal({
       matches: createdFixtures,
       activeSubTab: 'matches',
@@ -350,7 +370,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
                     className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none"
                   >
                     <option value="">-- Choose Player 1 --</option>
-                    {participants.map((p) => {
+                    {availableForP1.map((p) => {
                       const id = p.id || p.regId || p.Registration_ID;
                       const gender = getParticipantGender(p);
                       return (
@@ -370,7 +390,7 @@ export default function BadmintonModule({ participants = [], sportState = {}, on
                     className="w-full bg-white border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none"
                   >
                     <option value="">-- Choose Player 2 --</option>
-                    {participants.map((p) => {
+                    {availableForP2.map((p) => {
                       const id = p.id || p.regId || p.Registration_ID;
                       const gender = getParticipantGender(p);
                       return (
