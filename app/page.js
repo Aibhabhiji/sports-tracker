@@ -5,7 +5,6 @@ import { getInitialParticipants, parseCSVParticipants } from '@/lib/participantS
 import TeamAuctionModule from '@/components/sports/TeamAuctionModule';
 import ChessCarromModule from '@/components/sports/ChessCarromModule';
 import ChessAdvancedModule from '@/components/sports/ChessAdvancedModule';
-//import RaceModule from '@/components/sports/RaceModule';
 import MarathonModule from '@/components/sports/MarathonModule';
 import CricketModule from '@/components/sports/CricketModule';
 import FootballModule from '@/components/sports/FootballModule';
@@ -22,7 +21,6 @@ const SPORTS_LIST = [
   { id: 'chess', name: 'Chess', type: 'ADVANCED_CHESS' },
   { id: 'carrom', name: 'Carrom', type: 'ROUND_ROBIN' },
   { id: 'marathon', name: 'Marathon', type: 'MARATHON' },
-  //{ id: 'running', name: 'Running', type: 'RACE' },
   { id: 'walking', name: 'Walking', type: 'RACE' },
   { id: 'swimming', name: 'Swimming', type: 'RACE' },
   { id: 'quiz', name: 'Quiz', type: 'AUCTION_TEAM' },
@@ -41,18 +39,18 @@ export default function SanviOlympicsPortal() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isConfiguringSponsors, setIsConfiguringSponsors] = useState(false);
   
-  // Centralized Admin Protection (Locked by default for public viewers)
+  // Centralized Admin Protection
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminModuleState, setAdminModuleState] = useState({ admins: [], isAdmin: false });
 
-  // Sponsors State with image, marquee text, and cell effect
+  // Sponsors State
   const [sponsors, setSponsors] = useState([
     { id: '1', title: 'Sponsor 1', image: null, text: '', effect: 'none' },
     { id: '2', title: 'Sponsor 2', image: null, text: '', effect: 'none' },
     { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
   ]);
 
-  // Fetch central database data on load for all users
+  // Fetch central database data on load
   useEffect(() => {
     async function fetchCentralData() {
       try {
@@ -65,15 +63,8 @@ export default function SanviOlympicsPortal() {
             setParticipants(getInitialParticipants());
           }
           if (json.sportsData) setSportsData(json.sportsData);
-          
           if (json.sponsors && json.sponsors.length > 0) {
             setSponsors(json.sponsors);
-          } else {
-            setSponsors([
-              { id: '1', title: 'Sponsor 1', image: null, text: '', effect: 'none' },
-              { id: '2', title: 'Sponsor 2', image: null, text: '', effect: 'none' },
-              { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
-            ]);
           }
         }
       } catch (e) {
@@ -85,7 +76,6 @@ export default function SanviOlympicsPortal() {
     fetchCentralData();
   }, []);
 
-  // Secure Write Action Wrapper (Governs write access via Admin Password)
   const verifyAdminAndExecute = (actionCallback) => {
     if (!isAdminMode) {
       const pin = prompt('🔒 Admin Password Required to Edit/Save Changes:\n(Enter admin passcode)');
@@ -100,7 +90,6 @@ export default function SanviOlympicsPortal() {
     }
   };
 
-  // Save changes centrally to the database server
   const saveToCentralServer = async (updatedParticipants, updatedSportsData, updatedSponsors) => {
     verifyAdminAndExecute(async () => {
       try {
@@ -113,9 +102,7 @@ export default function SanviOlympicsPortal() {
             sponsors: updatedSponsors,
           }),
         });
-        if (!res.ok) {
-          throw new Error('Failed to save to server database.');
-        }
+        if (!res.ok) throw new Error('Failed to save to server database.');
       } catch (e) {
         console.error('Server sync error:', e);
         alert('⚠️ Error syncing with the central database server.');
@@ -139,14 +126,15 @@ export default function SanviOlympicsPortal() {
     });
   };
 
-  const filteredParticipants = participants.filter((p) => {
+  // 1. Initial Filtering
+  const rawFilteredParticipants = participants.filter((p) => {
     const pSport = p.gameChoice || p.sport || '';
 
     const matchGame = !filterByGameChoice || pSport.trim().toLowerCase() === activeSport.name.trim().toLowerCase();
     const matchPhase = selectedPhase === 'All Phases' || p.phase === selectedPhase;
     const matchCat = selectedCategory === 'All Categories' || p.category === selectedCategory;
     
-    // Exact Numeric Age Range Segregation
+    // Age Range Filter Evaluation
     const matchAge = selectedAgeGroup === 'All Age Groups' || (() => {
       const rawAgeVal = p.age ?? p.Age ?? p.ageGroup ?? p.AgeGroup ?? p.AGE ?? '';
       
@@ -155,12 +143,9 @@ export default function SanviOlympicsPortal() {
         numAge = rawAgeVal;
       } else if (rawAgeVal !== null && rawAgeVal !== undefined) {
         const digits = rawAgeVal.toString().match(/\d+/);
-        if (digits) {
-          numAge = parseInt(digits[0], 10);
-        }
+        if (digits) numAge = parseInt(digits[0], 10);
       }
 
-      // If no valid numeric age is found, attempt fallback text comparison
       if (numAge === null || isNaN(numAge)) {
         const pAgeStr = rawAgeVal.toString().trim().toLowerCase();
         if (selectedAgeGroup === 'Under 12 Kids') return pAgeStr.includes('under 12') || pAgeStr.includes('kids');
@@ -170,22 +155,31 @@ export default function SanviOlympicsPortal() {
         return false;
       }
 
-      // Strict Numerical Range Checks
       switch (selectedAgeGroup) {
-        case 'Under 12 Kids':
-          return numAge < 12;
-        case '12 - 17 years Teens':
-          return numAge >= 12 && numAge <= 17;
-        case '18 - 55 years Adults':
-          return numAge >= 18 && numAge <= 55;
-        case '55+ years Seniors':
-          return numAge >= 55;
-        default:
-          return true;
+        case 'Under 12 Kids': return numAge < 12;
+        case '12 - 17 years Teens': return numAge >= 12 && numAge <= 17;
+        case '18 - 55 years Adults': return numAge >= 18 && numAge <= 55;
+        case '55+ years Seniors': return numAge >= 55;
+        default: return true;
       }
     })();
     
     return matchGame && matchPhase && matchCat && matchAge;
+  });
+
+  // 2. Deduplication Filter (Removes duplicate registrations based on Name + Flat + Sport)
+  const seenParticipants = new Set();
+  const filteredParticipants = rawFilteredParticipants.filter((p) => {
+    const nameKey = (p.name || '').trim().toLowerCase();
+    const flatKey = (p.flat || p.Flat || p.flatNo || p.FlatNo || '').trim().toLowerCase();
+    const sportKey = (p.gameChoice || p.sport || '').trim().toLowerCase();
+    const compositeKey = `${nameKey}_${flatKey}_${sportKey}`;
+
+    if (seenParticipants.has(compositeKey)) {
+      return false; // Skip duplicate record
+    }
+    seenParticipants.add(compositeKey);
+    return true;
   });
 
   const handleFileUpload = (e) => {
@@ -226,16 +220,11 @@ export default function SanviOlympicsPortal() {
       reader.onload = (event) => {
         try {
           const backup = JSON.parse(event.target.result);
-          const newParts = backup.participants || participants;
-          const newSports = backup.sportsData || sportsData;
-          const newSponsors = backup.sponsors || sponsors;
-
-          if (backup.participants) setParticipants(newParts);
-          if (backup.sportsData) setSportsData(newSports);
-          if (backup.sponsors) setSponsors(newSponsors);
-
-          saveToCentralServer(newParts, newSports, newSponsors);
-          alert('Database restored successfully from backup and synced centrally!');
+          if (backup.participants) setParticipants(backup.participants);
+          if (backup.sportsData) setSportsData(backup.sportsData);
+          if (backup.sponsors) setSponsors(backup.sponsors);
+          saveToCentralServer(backup.participants || participants, backup.sportsData || sportsData, backup.sponsors || sponsors);
+          alert('Database restored successfully!');
         } catch (err) {
           alert('Invalid backup JSON file.');
         }
@@ -246,7 +235,7 @@ export default function SanviOlympicsPortal() {
 
   const handleResetGameData = () => {
     verifyAdminAndExecute(() => {
-      if (window.confirm('Are you sure you want to reset all transaction and game data? This will clear all match fixtures, team setups, and scores across all sports.')) {
+      if (window.confirm('Are you sure you want to reset all transaction and game data?')) {
         setSportsData({});
         saveToCentralServer(participants, {}, sponsors);
         alert('All transactional game data has been reset centrally.');
@@ -256,29 +245,6 @@ export default function SanviOlympicsPortal() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 p-6 font-sans space-y-6 transition-colors duration-200">
-      <style jsx global>{`
-        @keyframes slowZoom {
-          0%, 100% { transform: scale(1); }
-          50% { transform: scale(1.06); }
-        }
-        @keyframes fadeInOut {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-        .sponsor-effect-slow-zoom {
-          animation: slowZoom 5s infinite ease-in-out;
-        }
-        .sponsor-effect-fade {
-          animation: fadeInOut 3s infinite ease-in-out;
-        }
-        .sponsor-effect-zoom-in {
-          transition: transform 0.5s ease;
-        }
-        .sponsor-effect-zoom-in:hover {
-          transform: scale(1.12);
-        }
-      `}</style>
-
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white p-5 rounded-2xl border border-slate-200 shadow-sm gap-4">
         <div>
           <div className="flex items-center gap-3">
@@ -315,7 +281,6 @@ export default function SanviOlympicsPortal() {
           </div>
         </div>
 
-        {/* Admin-only controls */}
         {isAdminMode && (
           <div className="flex flex-wrap items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200">
             <span className="text-[10px] font-black text-amber-800 uppercase px-1">ADMIN CONTROLS:</span>
@@ -337,7 +302,6 @@ export default function SanviOlympicsPortal() {
         )}
       </header>
 
-      {/* Admin Module Integration */}
       {isAdminMode && (
         <AdminModule 
           currentUser={{ email: 'admin@example.com' }} 
@@ -349,26 +313,6 @@ export default function SanviOlympicsPortal() {
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
-
-          {/* Social Media Connect Icons */}
-          <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold text-slate-400">Connect:</span>
-            <div className="flex items-center gap-2">
-              <a href="https://www.facebook.com/share/1GUem7jeuc/" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="Facebook">
-                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-              </a>
-              <a href="https://www.instagram.com/sanviolympics/?hl=en" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="Instagram">
-                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
-              </a>
-              <a href="https://x.com/SanviOlympics" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="X">
-                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
-              </a>
-              <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="YouTube">
-                <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-              </a>
-            </div>
-          </div>
-
           {isAdminMode && (
             <button onClick={() => setIsConfiguringSponsors(true)} className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
               Configure Sponsors →
@@ -377,30 +321,22 @@ export default function SanviOlympicsPortal() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {sponsors.map((sponsor) => {
-            let effectClass = '';
-            if (sponsor.effect === 'slow-zoom') effectClass = 'sponsor-effect-slow-zoom';
-            if (sponsor.effect === 'fade') effectClass = 'sponsor-effect-fade';
-            if (sponsor.effect === 'zoom-in') effectClass = 'sponsor-effect-zoom-in';
-
-            return (
-              <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 flex flex-col justify-between relative shadow-sm p-2">
-                <div className={`w-full h-20 flex items-center justify-center overflow-hidden ${effectClass}`}>
-                  {sponsor.image ? (
-                    <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-xs text-slate-400 font-bold">{sponsor.title}</span>
-                  )}
-                </div>
-
-                {sponsor.text && (
-                  <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100">
-                    <marquee className="text-[11px] font-bold text-amber-700">{sponsor.text}</marquee>
-                  </div>
+          {sponsors.map((sponsor) => (
+            <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 flex flex-col justify-between relative shadow-sm p-2">
+              <div className="w-full h-20 flex items-center justify-center overflow-hidden">
+                {sponsor.image ? (
+                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-xs text-slate-400 font-bold">{sponsor.title}</span>
                 )}
               </div>
-            );
-          })}
+              {sponsor.text && (
+                <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100">
+                  <marquee className="text-[11px] font-bold text-amber-700">{sponsor.text}</marquee>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
@@ -475,19 +411,33 @@ export default function SanviOlympicsPortal() {
 
       {activeSubTab === 'participants' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredParticipants.map((p) => (
-            <div key={p.id || p.regId || p.Registration_ID} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow transition">
-              <div className="flex justify-between items-start">
-                <h4 className="font-bold text-slate-900 text-sm">{p.name}</h4>
-                <span className="text-[10px] bg-slate-100 text-amber-700 px-2 py-0.5 rounded border border-slate-200 font-semibold">ID: {p.regId || p.Registration_ID}</span>
+          {filteredParticipants.map((p) => {
+            // Extract numerical age for display on the tile
+            const rawAge = p.age ?? p.Age ?? p.AGE ?? p.ageGroup ?? p.AgeGroup ?? '';
+            let displayAge = '';
+            const digits = rawAge.toString().match(/\d+/);
+            if (digits) {
+              displayAge = `Age: ${digits[0]}`;
+            } else {
+              displayAge = rawAge ? `Age: ${rawAge}` : 'Age: N/A';
+            }
+
+            return (
+              <div key={p.id || p.regId || p.Registration_ID} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow transition">
+                <div className="flex justify-between items-start">
+                  <h4 className="font-bold text-slate-900 text-sm">{p.name}</h4>
+                  <span className="text-[10px] bg-slate-100 text-amber-700 px-2 py-0.5 rounded border border-slate-200 font-semibold">ID: {p.regId || p.Registration_ID}</span>
+                </div>
+                <p className="text-xs text-amber-700 mt-1 font-medium">{p.flat || p.Flat} • {p.gameChoice || p.sport}</p>
+                <div className="mt-3 flex justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-2">
+                  <span className="bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-amber-800 font-black">
+                    {displayAge}
+                  </span>
+                  <span className="text-emerald-600 font-bold">{p.phase}</span>
+                </div>
               </div>
-              <p className="text-xs text-amber-700 mt-1 font-medium">{p.flat} • {p.gameChoice || p.sport}</p>
-              <div className="mt-3 flex justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-2">
-                <span className="bg-slate-100 px-2 py-0.5 rounded text-amber-700 font-bold">{p.ageGroup || p.age || p.Age}</span>
-                <span className="text-emerald-600 font-bold">{p.phase}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -520,14 +470,14 @@ export default function SanviOlympicsPortal() {
         </div>
       )}
 
-      {/* Sponsor Configuration Modal (Admin Only) */}
+      {/* Sponsor Configuration Modal */}
       {isAdminMode && isConfiguringSponsors && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900">🌟 Sponsor Configuration Hub</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Upload images/GIFs, set marquee text, and apply per-cell effects simultaneously.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Upload images, marquee text, and animation effects.</p>
               </div>
               <button onClick={() => setIsConfiguringSponsors(false)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition">
                 ✕ Close
@@ -595,24 +545,6 @@ export default function SanviOlympicsPortal() {
                       }}
                       className="w-full bg-white border border-slate-200 p-2 rounded-xl text-xs text-slate-800 outline-none shadow-inner"
                     />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-600">Cell Animation Effect</label>
-                    <select
-                      value={sponsor.effect || 'none'}
-                      onChange={(e) => {
-                        const updated = [...sponsors];
-                        updated[index].effect = e.target.value;
-                        setSponsors(updated);
-                      }}
-                      className="w-full bg-white border border-slate-200 p-2 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner"
-                    >
-                      <option value="none">None (Static)</option>
-                      <option value="slow-zoom">Slow Zoom (Continuous Pulse)</option>
-                      <option value="fade">Fade Pulse (Opacity Wave)</option>
-                      <option value="zoom-in">Zoom In on Hover</option>
-                    </select>
                   </div>
                 </div>
               ))}
