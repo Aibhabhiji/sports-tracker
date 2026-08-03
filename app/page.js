@@ -5,6 +5,7 @@ import { getInitialParticipants, parseCSVParticipants } from '@/lib/participantS
 import TeamAuctionModule from '@/components/sports/TeamAuctionModule';
 import ChessCarromModule from '@/components/sports/ChessCarromModule';
 import ChessAdvancedModule from '@/components/sports/ChessAdvancedModule';
+//import RaceModule from '@/components/sports/RaceModule';
 import MarathonModule from '@/components/sports/MarathonModule';
 import CricketModule from '@/components/sports/CricketModule';
 import FootballModule from '@/components/sports/FootballModule';
@@ -21,6 +22,7 @@ const SPORTS_LIST = [
   { id: 'chess', name: 'Chess', type: 'ADVANCED_CHESS' },
   { id: 'carrom', name: 'Carrom', type: 'ROUND_ROBIN' },
   { id: 'marathon', name: 'Marathon', type: 'MARATHON' },
+  //{ id: 'running', name: 'Running', type: 'RACE' },
   { id: 'walking', name: 'Walking', type: 'RACE' },
   { id: 'swimming', name: 'Swimming', type: 'RACE' },
   { id: 'quiz', name: 'Quiz', type: 'AUCTION_TEAM' },
@@ -50,40 +52,24 @@ export default function SanviOlympicsPortal() {
     { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
   ]);
 
-  // Load data from Server DB, with localStorage Fallback for localhost
+  // Fetch central database data on load
   useEffect(() => {
     async function fetchCentralData() {
-      let loadedServerData = false;
       try {
         const res = await fetch('/api/portal-data');
         if (res.ok) {
           const json = await res.json();
           if (json.participants && json.participants.length > 0) {
             setParticipants(json.participants);
-            loadedServerData = true;
+          } else {
+            setParticipants(getInitialParticipants());
           }
           if (json.sportsData) setSportsData(json.sportsData);
           if (json.sponsors && json.sponsors.length > 0) setSponsors(json.sponsors);
         }
       } catch (e) {
-        console.warn('Server API unavailable, switching to local storage mode:', e);
-      }
-
-      // LocalStorage Fallback if server fetch fails or returns empty
-      if (!loadedServerData) {
-        try {
-          const localPart = localStorage.getItem('sanvi_participants');
-          const localSports = localStorage.getItem('sanvi_sportsData');
-          const localSponsors = localStorage.getItem('sanvi_sponsors');
-
-          if (localPart) setParticipants(JSON.parse(localPart));
-          else setParticipants(getInitialParticipants());
-
-          if (localSports) setSportsData(JSON.parse(localSports));
-          if (localSponsors) setSponsors(JSON.parse(localSponsors));
-        } catch (err) {
-          setParticipants(getInitialParticipants());
-        }
+        console.error('Failed to load central data, falling back to defaults', e);
+        setParticipants(getInitialParticipants());
       }
       setIsLoaded(true);
     }
@@ -104,19 +90,8 @@ export default function SanviOlympicsPortal() {
     }
   };
 
-  // Resilient Save Handler: Attempts Server Sync, Falls Back to LocalStorage without intrusive alerts
   const saveToCentralServer = async (updatedParticipants, updatedSportsData, updatedSponsors) => {
     verifyAdminAndExecute(async () => {
-      // 1. Always save locally first so user never loses progress
-      try {
-        localStorage.setItem('sanvi_participants', JSON.stringify(updatedParticipants));
-        localStorage.setItem('sanvi_sportsData', JSON.stringify(updatedSportsData));
-        localStorage.setItem('sanvi_sponsors', JSON.stringify(updatedSponsors));
-      } catch (e) {
-        console.error('LocalStorage write error:', e);
-      }
-
-      // 2. Try saving to central server API silently
       try {
         const res = await fetch('/api/portal-data', {
           method: 'POST',
@@ -128,10 +103,11 @@ export default function SanviOlympicsPortal() {
           }),
         });
         if (!res.ok) {
-          console.warn('Server DB update skipped on local environment.');
+          throw new Error('Failed to save to server database.');
         }
       } catch (e) {
-        console.warn('Server endpoint unreachable on localhost. Saved to local storage.');
+        console.error('Server sync error:', e);
+        alert('⚠️ Error syncing with the central database server.');
       }
     });
   };
@@ -152,80 +128,16 @@ export default function SanviOlympicsPortal() {
     });
   };
 
-  // 1. Initial Filtering
-  const rawFilteredParticipants = participants.filter((p) => {
+  const filteredParticipants = participants.filter((p) => {
     const pSport = p.gameChoice || p.sport || '';
+    const pAgeGroup = p.ageGroup || p.age || '';
 
     const matchGame = !filterByGameChoice || pSport.trim().toLowerCase() === activeSport.name.trim().toLowerCase();
-    
-    // Robust Phase Filter Match
-    const matchPhase = selectedPhase === 'All Phases' || (() => {
-      const rawPhase = p.phase ?? p.Phase ?? p.PHASE ?? p.phaseNo ?? p.PhaseNo ?? '';
-      if (rawPhase === null || rawPhase === undefined || rawPhase === '') return false;
-
-      const pPhaseStr = rawPhase.toString().trim().toLowerCase();
-      const selPhaseStr = selectedPhase.trim().toLowerCase();
-
-      if (pPhaseStr === selPhaseStr) return true;
-
-      const selDigit = selPhaseStr.match(/\d+/)?.[0];
-      const pDigit = pPhaseStr.match(/\d+/)?.[0];
-
-      if (selDigit && pDigit) {
-        return selDigit === pDigit;
-      }
-
-      return pPhaseStr.includes(selPhaseStr) || selPhaseStr.includes(pPhaseStr);
-    })();
-
+    const matchPhase = selectedPhase === 'All Phases' || p.phase === selectedPhase;
     const matchCat = selectedCategory === 'All Categories' || p.category === selectedCategory;
-    
-    // Age Range Filter Evaluation
-    const matchAge = selectedAgeGroup === 'All Age Groups' || (() => {
-      const rawAgeVal = p.age ?? p.Age ?? p.ageGroup ?? p.AgeGroup ?? p.AGE ?? '';
-      
-      let numAge = null;
-      if (typeof rawAgeVal === 'number') {
-        numAge = rawAgeVal;
-      } else if (rawAgeVal !== null && rawAgeVal !== undefined) {
-        const digits = rawAgeVal.toString().match(/\d+/);
-        if (digits) numAge = parseInt(digits[0], 10);
-      }
-
-      if (numAge === null || isNaN(numAge)) {
-        const pAgeStr = rawAgeVal.toString().trim().toLowerCase();
-        if (selectedAgeGroup === 'Under 12 Kids') return pAgeStr.includes('under 12') || pAgeStr.includes('kids');
-        if (selectedAgeGroup === '12 - 17 years Teens') return pAgeStr.includes('12') || pAgeStr.includes('teen');
-        if (selectedAgeGroup === '18 - 55 years Adults') return pAgeStr.includes('18') || pAgeStr.includes('adult');
-        if (selectedAgeGroup === '55+ years Seniors') return pAgeStr.includes('55') || pAgeStr.includes('senior');
-        return false;
-      }
-
-      switch (selectedAgeGroup) {
-        case 'Under 12 Kids': return numAge < 12;
-        case '12 - 17 years Teens': return numAge >= 12 && numAge <= 17;
-        case '18 - 55 years Adults': return numAge >= 18 && numAge <= 55;
-        case '55+ years Seniors': return numAge >= 55;
-        default: return true;
-      }
-    })();
+    const matchAge = selectedAgeGroup === 'All Age Groups' || pAgeGroup.toString().trim().toLowerCase() === selectedAgeGroup.trim().toLowerCase();
     
     return matchGame && matchPhase && matchCat && matchAge;
-  });
-
-  // 2. Deduplication Filter (Removes duplicate registrations based on Name + Flat + Sport)
-  const seenParticipants = new Set();
-  const filteredParticipants = rawFilteredParticipants.filter((p) => {
-    const nameKey = (p.name || '').trim().toLowerCase();
-    const flatKey = (p.flat || p.Flat || p.flatNo || p.FlatNo || '').trim().toLowerCase();
-    const sportKey = (p.gameChoice || p.sport || '').trim().toLowerCase();
-    const compositeKey = `${nameKey}_${flatKey}_${sportKey}`;
-
-    if (seenParticipants.has(compositeKey)) {
-      return false; // Skip duplicate record
-    }
-    seenParticipants.add(compositeKey);
-    return true;
   });
 
   const handleFileUpload = (e) => {
@@ -284,7 +196,7 @@ export default function SanviOlympicsPortal() {
       if (window.confirm('Are you sure you want to reset all transaction and game data?')) {
         setSportsData({});
         saveToCentralServer(participants, {}, sponsors);
-        alert('All transactional game data has been reset.');
+        alert('All transactional game data has been reset centrally.');
       }
     });
   };
@@ -346,6 +258,24 @@ export default function SanviOlympicsPortal() {
             </button>
           </div>
         )}
+        {/* Social Media Connect Icons */}
+        <div className="flex items-center gap-3 md:ml-auto">
+          <span className="text-[10px] font-bold text-slate-400">Connect:</span>
+          <div className="flex items-center gap-2">
+            <a href="https://www.facebook.com/share/1GUem7jeuc/" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="Facebook">
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            </a>
+            <a href="https://www.instagram.com/sanviolympics/?hl=en" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="Instagram">
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+            </a>
+            <a href="https://x.com/SanviOlympics" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="X">
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+            </a>
+            <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="YouTube">
+              <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+            </a>
+          </div>
+        </div>
       </header>
 
       {isAdminMode && (
@@ -371,7 +301,7 @@ export default function SanviOlympicsPortal() {
             <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden min-h-32 flex flex-col justify-between relative shadow-sm p-2">
               <div className="w-full flex-1 flex items-center justify-center overflow-hidden my-auto min-h-[80px]">
                 {sponsor.image ? (
-                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-auto max-h-28 object-contain" />
+                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-auto max-h-24 object-contain" />
                 ) : (
                   <span className="text-xs text-slate-400 font-bold">{sponsor.title}</span>
                 )}
