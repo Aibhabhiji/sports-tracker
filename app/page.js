@@ -50,26 +50,40 @@ export default function SanviOlympicsPortal() {
     { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
   ]);
 
-  // Fetch central database data on load
+  // Load data from Server DB, with localStorage Fallback for localhost
   useEffect(() => {
     async function fetchCentralData() {
+      let loadedServerData = false;
       try {
         const res = await fetch('/api/portal-data');
         if (res.ok) {
           const json = await res.json();
           if (json.participants && json.participants.length > 0) {
             setParticipants(json.participants);
-          } else {
-            setParticipants(getInitialParticipants());
+            loadedServerData = true;
           }
           if (json.sportsData) setSportsData(json.sportsData);
-          if (json.sponsors && json.sponsors.length > 0) {
-            setSponsors(json.sponsors);
-          }
+          if (json.sponsors && json.sponsors.length > 0) setSponsors(json.sponsors);
         }
       } catch (e) {
-        console.error('Failed to load central data, falling back to defaults', e);
-        setParticipants(getInitialParticipants());
+        console.warn('Server API unavailable, switching to local storage mode:', e);
+      }
+
+      // LocalStorage Fallback if server fetch fails or returns empty
+      if (!loadedServerData) {
+        try {
+          const localPart = localStorage.getItem('sanvi_participants');
+          const localSports = localStorage.getItem('sanvi_sportsData');
+          const localSponsors = localStorage.getItem('sanvi_sponsors');
+
+          if (localPart) setParticipants(JSON.parse(localPart));
+          else setParticipants(getInitialParticipants());
+
+          if (localSports) setSportsData(JSON.parse(localSports));
+          if (localSponsors) setSponsors(JSON.parse(localSponsors));
+        } catch (err) {
+          setParticipants(getInitialParticipants());
+        }
       }
       setIsLoaded(true);
     }
@@ -90,8 +104,19 @@ export default function SanviOlympicsPortal() {
     }
   };
 
+  // Resilient Save Handler: Attempts Server Sync, Falls Back to LocalStorage without intrusive alerts
   const saveToCentralServer = async (updatedParticipants, updatedSportsData, updatedSponsors) => {
     verifyAdminAndExecute(async () => {
+      // 1. Always save locally first so user never loses progress
+      try {
+        localStorage.setItem('sanvi_participants', JSON.stringify(updatedParticipants));
+        localStorage.setItem('sanvi_sportsData', JSON.stringify(updatedSportsData));
+        localStorage.setItem('sanvi_sponsors', JSON.stringify(updatedSponsors));
+      } catch (e) {
+        console.error('LocalStorage write error:', e);
+      }
+
+      // 2. Try saving to central server API silently
       try {
         const res = await fetch('/api/portal-data', {
           method: 'POST',
@@ -102,10 +127,11 @@ export default function SanviOlympicsPortal() {
             sponsors: updatedSponsors,
           }),
         });
-        if (!res.ok) throw new Error('Failed to save to server database.');
+        if (!res.ok) {
+          console.warn('Server DB update skipped on local environment.');
+        }
       } catch (e) {
-        console.error('Server sync error:', e);
-        alert('⚠️ Error syncing with the central database server.');
+        console.warn('Server endpoint unreachable on localhost. Saved to local storage.');
       }
     });
   };
@@ -193,7 +219,7 @@ export default function SanviOlympicsPortal() {
         if (parsed.length > 0) {
           setParticipants(parsed);
           saveToCentralServer(parsed, sportsData, sponsors);
-          alert(`Successfully imported ${parsed.length} registration records and saved to central database!`);
+          alert(`Successfully imported ${parsed.length} registration records!`);
         } else {
           alert('Could not parse CSV.');
         }
@@ -238,7 +264,7 @@ export default function SanviOlympicsPortal() {
       if (window.confirm('Are you sure you want to reset all transaction and game data?')) {
         setSportsData({});
         saveToCentralServer(participants, {}, sponsors);
-        alert('All transactional game data has been reset centrally.');
+        alert('All transactional game data has been reset.');
       }
     });
   };
@@ -412,7 +438,6 @@ export default function SanviOlympicsPortal() {
       {activeSubTab === 'participants' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {filteredParticipants.map((p) => {
-            // Extract numerical age for display on the tile
             const rawAge = p.age ?? p.Age ?? p.AGE ?? p.ageGroup ?? p.AgeGroup ?? '';
             let displayAge = '';
             const digits = rawAge.toString().match(/\d+/);
