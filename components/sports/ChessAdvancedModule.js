@@ -3,7 +3,15 @@
 import React, { useState } from 'react';
 
 export default function ChessAdvancedModule({ participants, sportState, onUpdateSportState }) {
-  const categories = sportState?.categories || ['Open', 'Under 16', 'Veterans'];
+  // Predefined standard categories + dynamic categories extracted from participants
+  const defaultCategories = ['Open', 'Under 12 Kids', '12 - 17 years Teens', '18 - 55 years Adults', '55+ years Seniors', 'Kids', 'Male', 'Female', 'Under 16', 'Veterans'];
+  const dynamicCategories = Array.from(new Set(
+    (participants || []).flatMap(p => [
+      p.category, p.Category, p.ageGroup, p.AgeGroup, p.gender, p.Gender
+    ].filter(Boolean))
+  ));
+  const categories = Array.from(new Set([...(sportState?.categories || []), ...defaultCategories, ...dynamicCategories]));
+
   const [selectedCategory, setSelectedCategory] = useState('Open');
   
   // Per-category rounds and round indices stored in sportState.categoryRounds
@@ -18,31 +26,35 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
-  // Helper to check if a player is already assigned to ANY other category's tournament
-  const isPlayerAssignedToAnotherCategory = (playerId, currentCat) => {
-    for (const [catName, catData] of Object.entries(categoryRoundsMap)) {
-      if (catName === currentCat) continue;
-      const catRounds = catData?.rounds || [];
-      if (catRounds.length > 0) {
-        for (const r of catRounds) {
-          for (const g of r.groups || []) {
-            if (g.standings.some(s => s.id === playerId)) {
-              return true;
-            }
-          }
-        }
-      }
-    }
-    return false;
-  };
+  // Filter participants for current category flexibly without cross-category lockouts
+  const rawFiltered = (participants || []).filter(p => {
+    if (!selectedCategory || selectedCategory === 'Open' || selectedCategory === 'All') return true;
 
-  // Filter participants for current category, ensuring exclusivity and strict deduplication
-  const rawFiltered = participants.filter(p => {
-    if (isPlayerAssignedToAnotherCategory(p.id, selectedCategory)) {
-      return false;
+    const catStr = selectedCategory.toLowerCase();
+    const pCat = (p.category || p.Category || '').toString().toLowerCase();
+    const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
+    const pGender = (p.gender || p.Gender || '').toString().toLowerCase();
+    const pAge = (p.age || p.Age || '').toString();
+
+    if (pCat === catStr || pAgeGroup === catStr || pGender === catStr) return true;
+    if (catStr.includes('under 12') || catStr.includes('kids')) {
+      const num = parseInt(pAge.match(/\d+/)?.[0] || '99', 10);
+      return num < 12 || pCat.includes('kid') || pAgeGroup.includes('kid');
     }
-    if (!selectedCategory || selectedCategory === 'Open') return true;
-    return p.category === selectedCategory || p.ageGroup === selectedCategory;
+    if (catStr.includes('12 - 17') || catStr.includes('teens') || catStr.includes('under 16')) {
+      const num = parseInt(pAge.match(/\d+/)?.[0] || '99', 10);
+      return (num >= 12 && num <= 17) || num < 16 || pCat.includes('teen') || pAgeGroup.includes('teen');
+    }
+    if (catStr.includes('18 - 55') || catStr.includes('adults')) {
+      const num = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
+      return (num >= 18 && num <= 55) || pCat.includes('adult') || pAgeGroup.includes('adult');
+    }
+    if (catStr.includes('55+') || catStr.includes('seniors') || catStr.includes('veterans')) {
+      const num = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
+      return num >= 55 || pCat.includes('senior') || pCat.includes('veteran');
+    }
+
+    return pCat.includes(catStr) || pAgeGroup.includes(catStr);
   });
 
   // Strict deduplication by ID and normalized Name to prevent duplicate entries
@@ -71,7 +83,7 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
 
   const handleInitializeRound1 = () => {
     if (filteredParticipants.length < 2) {
-      alert(`Not enough available participants in category "${selectedCategory}" to start Round 1 (players already in other categories or duplicates are excluded).`);
+      alert(`Not enough available participants in category "${selectedCategory}" to start Round 1.`);
       return;
     }
 
@@ -113,19 +125,22 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
 
     const newRounds = [{ roundName: 'Round 1 (Group Stage)', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for category: ${selectedCategory} with ${initialGroups.length} groups (no duplicates)!`);
+    alert(`Round 1 initialized for category: ${selectedCategory} with ${initialGroups.length} groups!`);
   };
 
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
     const currentRound = rounds[currentRoundIndex];
     if (!currentRound) return;
 
+    const numA = Number(scoreA);
+    const numB = Number(scoreB);
+
     const updatedGroups = currentRound.groups.map((grp, gIdx) => {
       if (gIdx !== groupIndex) return grp;
 
       const updatedMatches = grp.matches.map(m => {
         if (m.id === matchId) {
-          return { ...m, scoreA, scoreB, isLocked: true };
+          return { ...m, scoreA: numA, scoreB: numB, isLocked: true };
         }
         return m;
       });
@@ -144,12 +159,14 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
           const pA = newStandings.find(s => s.id === m.playerA.id);
           const pB = newStandings.find(s => s.id === m.playerB.id);
           if (pA && pB) {
+            const sA = Number(m.scoreA);
+            const sB = Number(m.scoreB);
             pA.played += 1;
             pB.played += 1;
-            if (m.scoreA > m.scoreB) {
+            if (sA > sB) {
               pA.won += 1; pA.points += 1;
               pB.lost += 1;
-            } else if (m.scoreB > m.scoreA) {
+            } else if (sB > sA) {
               pB.won += 1; pB.points += 1;
               pA.lost += 1;
             } else {
@@ -171,6 +188,16 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
   const handleAdvanceToNextRound = () => {
     const currentRound = rounds[currentRoundIndex];
     if (!currentRound) return;
+
+    // Strict validation: Ensure all matches in all groups of the current round are completed
+    const hasUncompletedMatches = currentRound.groups.some(grp =>
+      grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
+    );
+
+    if (hasUncompletedMatches) {
+      alert('❌ Cannot advance to the next round until ALL matches in the current ongoing round are completed!');
+      return;
+    }
 
     let qualifiedPlayers = [];
     currentRound.groups.forEach(grp => {
@@ -412,7 +439,11 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
                         <div className="flex items-center gap-2">
                           <select
                             value={m.scoreA !== null ? m.scoreA : ''}
-                            onChange={(e) => updateMatchScore(gIdx, m.id, Number(e.target.value), m.scoreB !== null ? m.scoreB : 0)}
+                            onChange={(e) => {
+                              const valA = Number(e.target.value);
+                              const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
+                              updateMatchScore(gIdx, m.id, valA, valB);
+                            }}
                             className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
                           >
                             <option value="" disabled>{m.playerA.name} Score</option>
@@ -425,7 +456,11 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
 
                           <select
                             value={m.scoreB !== null ? m.scoreB : ''}
-                            onChange={(e) => updateMatchScore(gIdx, m.id, m.scoreA !== null ? m.scoreA : 0, Number(e.target.value))}
+                            onChange={(e) => {
+                              const valB = Number(e.target.value);
+                              const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
+                              updateMatchScore(gIdx, m.id, valA, valB);
+                            }}
                             className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
                           >
                             <option value="" disabled>{m.playerB.name} Score</option>
