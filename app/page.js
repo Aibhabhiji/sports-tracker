@@ -141,29 +141,48 @@ export default function SanviOlympicsPortal() {
 
   const filteredParticipants = participants.filter((p) => {
     const pSport = p.gameChoice || p.sport || '';
-    const pAgeGroup = p.ageGroup || p.age || '';
 
     const matchGame = !filterByGameChoice || pSport.trim().toLowerCase() === activeSport.name.trim().toLowerCase();
     const matchPhase = selectedPhase === 'All Phases' || p.phase === selectedPhase;
     const matchCat = selectedCategory === 'All Categories' || p.category === selectedCategory;
     
-    // Robust Age Group matching supporting both new and legacy participant age tags
+    // Exact Numeric Age Range Segregation
     const matchAge = selectedAgeGroup === 'All Age Groups' || (() => {
-      const pAgeStr = pAgeGroup.toString().trim().toLowerCase();
-      const selAgeStr = selectedAgeGroup.trim().toLowerCase();
-      if (selAgeStr.includes('under 12 kids')) {
-        return pAgeStr.includes('under 12') || pAgeStr.includes('under 13') || pAgeStr.includes('kids');
+      const rawAgeVal = p.age ?? p.Age ?? p.ageGroup ?? p.AgeGroup ?? p.AGE ?? '';
+      
+      let numAge = null;
+      if (typeof rawAgeVal === 'number') {
+        numAge = rawAgeVal;
+      } else if (rawAgeVal !== null && rawAgeVal !== undefined) {
+        const digits = rawAgeVal.toString().match(/\d+/);
+        if (digits) {
+          numAge = parseInt(digits[0], 10);
+        }
       }
-      if (selAgeStr.includes('12 - 17') || selAgeStr.includes('12-17')) {
-        return pAgeStr.includes('12') || pAgeStr.includes('13') || pAgeStr.includes('14') || pAgeStr.includes('15') || pAgeStr.includes('16') || pAgeStr.includes('17');
+
+      // If no valid numeric age is found, attempt fallback text comparison
+      if (numAge === null || isNaN(numAge)) {
+        const pAgeStr = rawAgeVal.toString().trim().toLowerCase();
+        if (selectedAgeGroup === 'Under 12 Kids') return pAgeStr.includes('under 12') || pAgeStr.includes('kids');
+        if (selectedAgeGroup === '12 - 17 years Teens') return pAgeStr.includes('12') || pAgeStr.includes('teen');
+        if (selectedAgeGroup === '18 - 55 years Adults') return pAgeStr.includes('18') || pAgeStr.includes('adult');
+        if (selectedAgeGroup === '55+ years Seniors') return pAgeStr.includes('55') || pAgeStr.includes('senior');
+        return false;
       }
-      if (selAgeStr.includes('18 - 55') || selAgeStr.includes('18-55')) {
-        return pAgeStr.includes('18') || pAgeStr.includes('49') || pAgeStr.includes('50') || pAgeStr.includes('adult');
+
+      // Strict Numerical Range Checks
+      switch (selectedAgeGroup) {
+        case 'Under 12 Kids':
+          return numAge < 12;
+        case '12 - 17 years Teens':
+          return numAge >= 12 && numAge <= 17;
+        case '18 - 55 years Adults':
+          return numAge >= 18 && numAge <= 55;
+        case '55+ years Seniors':
+          return numAge >= 55;
+        default:
+          return true;
       }
-      if (selAgeStr.includes('55+') || selAgeStr.includes('senior')) {
-        return pAgeStr.includes('50+') || pAgeStr.includes('55+') || pAgeStr.includes('senior');
-      }
-      return pAgeStr === selAgeStr;
     })();
     
     return matchGame && matchPhase && matchCat && matchAge;
@@ -296,7 +315,7 @@ export default function SanviOlympicsPortal() {
           </div>
         </div>
 
-        {/* Admin-only controls (hidden for general public viewers) */}
+        {/* Admin-only controls */}
         {isAdminMode && (
           <div className="flex flex-wrap items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200">
             <span className="text-[10px] font-black text-amber-800 uppercase px-1">ADMIN CONTROLS:</span>
@@ -318,7 +337,7 @@ export default function SanviOlympicsPortal() {
         )}
       </header>
 
-      {/* Admin Module Integration (Visible when Admin Mode is unlocked) */}
+      {/* Admin Module Integration */}
       {isAdminMode && (
         <AdminModule 
           currentUser={{ email: 'admin@example.com' }} 
@@ -464,7 +483,7 @@ export default function SanviOlympicsPortal() {
               </div>
               <p className="text-xs text-amber-700 mt-1 font-medium">{p.flat} • {p.gameChoice || p.sport}</p>
               <div className="mt-3 flex justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-2">
-                <span className="bg-slate-100 px-2 py-0.5 rounded text-amber-700 font-bold">{p.ageGroup || p.age}</span>
+                <span className="bg-slate-100 px-2 py-0.5 rounded text-amber-700 font-bold">{p.ageGroup || p.age || p.Age}</span>
                 <span className="text-emerald-600 font-bold">{p.phase}</span>
               </div>
             </div>
