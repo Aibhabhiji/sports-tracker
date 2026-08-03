@@ -157,7 +157,27 @@ export default function SanviOlympicsPortal() {
     const pSport = p.gameChoice || p.sport || '';
 
     const matchGame = !filterByGameChoice || pSport.trim().toLowerCase() === activeSport.name.trim().toLowerCase();
-    const matchPhase = selectedPhase === 'All Phases' || p.phase === selectedPhase;
+    
+    // Robust Phase Filter Match
+    const matchPhase = selectedPhase === 'All Phases' || (() => {
+      const rawPhase = p.phase ?? p.Phase ?? p.PHASE ?? p.phaseNo ?? p.PhaseNo ?? '';
+      if (rawPhase === null || rawPhase === undefined || rawPhase === '') return false;
+
+      const pPhaseStr = rawPhase.toString().trim().toLowerCase();
+      const selPhaseStr = selectedPhase.trim().toLowerCase();
+
+      if (pPhaseStr === selPhaseStr) return true;
+
+      const selDigit = selPhaseStr.match(/\d+/)?.[0];
+      const pDigit = pPhaseStr.match(/\d+/)?.[0];
+
+      if (selDigit && pDigit) {
+        return selDigit === pDigit;
+      }
+
+      return pPhaseStr.includes(selPhaseStr) || selPhaseStr.includes(pPhaseStr);
+    })();
+
     const matchCat = selectedCategory === 'All Categories' || p.category === selectedCategory;
     
     // Age Range Filter Evaluation
@@ -458,7 +478,7 @@ export default function SanviOlympicsPortal() {
                   <span className="bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-amber-800 font-black">
                     {displayAge}
                   </span>
-                  <span className="text-emerald-600 font-bold">{p.phase}</span>
+                  <span className="text-emerald-600 font-bold">{p.phase || p.Phase}</span>
                 </div>
               </div>
             );
