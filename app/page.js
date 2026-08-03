@@ -128,10 +128,22 @@ export default function SanviOlympicsPortal() {
     });
   };
 
-  // Dynamic Filtering Logic with Age Range and Phase Normalization
+  // Dynamic Filtering & Automatic Participant Deduplication Logic
+  const seenKeys = new Set();
   const filteredParticipants = participants.filter((p) => {
-    const pSport = p.gameChoice || p.sport || '';
-    const matchGame = !filterByGameChoice || pSport.trim().toLowerCase() === activeSport.name.trim().toLowerCase();
+    const pName = (p.name || p.Name || '').toString().trim().toLowerCase();
+    const pFlat = (p.flat || p.Flat || '').toString().trim().toLowerCase();
+    const pSport = (p.gameChoice || p.sport || p.Sport || '').toString().trim().toLowerCase();
+    const pId = (p.id || p.regId || p.Registration_ID || '').toString().trim();
+
+    // Composite identity key to detect duplicate registrations
+    const compositeKey = (pName && pFlat) ? `${pName}_${pFlat}_${pSport}` : null;
+
+    if ((pId && seenKeys.has(`id:${pId}`)) || (compositeKey && seenKeys.has(`comp:${compositeKey}`))) {
+      return false;
+    }
+
+    const matchGame = !filterByGameChoice || pSport === activeSport.name.trim().toLowerCase();
 
     // 1. Flexible Phase Filter Matching
     const rawPhase = (p.phase || p.Phase || p['Phase'] || p['phase'] || '').toString().trim();
@@ -181,7 +193,12 @@ export default function SanviOlympicsPortal() {
       return false;
     })();
 
-    return matchGame && matchPhase && matchCat && matchAge;
+    const matchesAll = matchGame && matchPhase && matchCat && matchAge;
+    if (matchesAll) {
+      if (pId) seenKeys.add(`id:${pId}`);
+      if (compositeKey) seenKeys.add(`comp:${compositeKey}`);
+    }
+    return matchesAll;
   });
 
   const handleFileUpload = (e) => {
