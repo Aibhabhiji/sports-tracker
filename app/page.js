@@ -348,16 +348,16 @@ export default function SanviOlympicsPortal() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {sponsors.map((sponsor) => (
-            <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden h-32 flex flex-col justify-between relative shadow-sm p-2">
-              <div className="w-full h-20 flex items-center justify-center overflow-hidden">
+            <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden min-h-32 flex flex-col justify-between relative shadow-sm p-2">
+              <div className="w-full flex-1 flex items-center justify-center overflow-hidden my-auto min-h-[80px]">
                 {sponsor.image ? (
-                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain" />
+                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-auto max-h-28 object-contain" />
                 ) : (
                   <span className="text-xs text-slate-400 font-bold">{sponsor.title}</span>
                 )}
               </div>
               {sponsor.text && (
-                <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100">
+                <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100 mt-1">
                   <marquee className="text-[11px] font-bold text-amber-700">{sponsor.text}</marquee>
                 </div>
               )}
@@ -530,7 +530,7 @@ export default function SanviOlympicsPortal() {
 
                   <div className="w-full h-28 bg-white border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center relative shadow-inner p-2">
                     {sponsor.image ? (
-                      <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain" />
+                      <img src={sponsor.image} alt={sponsor.title} className="w-full h-auto max-h-24 object-contain" />
                     ) : (
                       <span className="text-xs text-slate-400 font-medium">No Image Set</span>
                     )}
