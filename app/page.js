@@ -146,7 +146,25 @@ export default function SanviOlympicsPortal() {
     const matchGame = !filterByGameChoice || pSport.trim().toLowerCase() === activeSport.name.trim().toLowerCase();
     const matchPhase = selectedPhase === 'All Phases' || p.phase === selectedPhase;
     const matchCat = selectedCategory === 'All Categories' || p.category === selectedCategory;
-    const matchAge = selectedAgeGroup === 'All Age Groups' || pAgeGroup.toString().trim().toLowerCase() === selectedAgeGroup.trim().toLowerCase();
+    
+    // Robust Age Group matching supporting both new and legacy participant age tags
+    const matchAge = selectedAgeGroup === 'All Age Groups' || (() => {
+      const pAgeStr = pAgeGroup.toString().trim().toLowerCase();
+      const selAgeStr = selectedAgeGroup.trim().toLowerCase();
+      if (selAgeStr.includes('under 12 kids')) {
+        return pAgeStr.includes('under 12') || pAgeStr.includes('under 13') || pAgeStr.includes('kids');
+      }
+      if (selAgeStr.includes('12 - 17') || selAgeStr.includes('12-17')) {
+        return pAgeStr.includes('12') || pAgeStr.includes('13') || pAgeStr.includes('14') || pAgeStr.includes('15') || pAgeStr.includes('16') || pAgeStr.includes('17');
+      }
+      if (selAgeStr.includes('18 - 55') || selAgeStr.includes('18-55')) {
+        return pAgeStr.includes('18') || pAgeStr.includes('49') || pAgeStr.includes('50') || pAgeStr.includes('adult');
+      }
+      if (selAgeStr.includes('55+') || selAgeStr.includes('senior')) {
+        return pAgeStr.includes('50+') || pAgeStr.includes('55+') || pAgeStr.includes('senior');
+      }
+      return pAgeStr === selAgeStr;
+    })();
     
     return matchGame && matchPhase && matchCat && matchAge;
   });
@@ -400,11 +418,10 @@ export default function SanviOlympicsPortal() {
           <label className="text-xs font-bold text-slate-500 block mb-1.5">Age Group Segregation</label>
           <select value={selectedAgeGroup} onChange={(e) => setSelectedAgeGroup(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner">
             <option>All Age Groups</option>
-            <option>Under 12</option>
-            <option>Under 13 (Kids)</option>
-            <option>13 - 17 years</option>
-            <option>18 - 49 years</option>
-            <option>50+ Senior Citizens</option>
+            <option>Under 12 Kids</option>
+            <option>12 - 17 years Teens</option>
+            <option>18 - 55 years Adults</option>
+            <option>55+ years Seniors</option>
           </select>
         </div>
 
