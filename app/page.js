@@ -11,6 +11,7 @@ import CricketModule from '@/components/sports/CricketModule';
 import FootballModule from '@/components/sports/FootballModule';
 import TableTennisModule from '@/components/sports/TableTennisModule';
 import BadmintonModule from '@/components/sports/BadmintonModule';
+import AdminModule from '@/components/AdminModule';
 
 const SPORTS_LIST = [
   { id: 'cricket', name: 'Cricket', type: 'AUCTION_TEAM' },
@@ -40,8 +41,9 @@ export default function SanviOlympicsPortal() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isConfiguringSponsors, setIsConfiguringSponsors] = useState(false);
   
-  // Centralized Admin Protection (Locked by default for regular users)
+  // Centralized Admin Protection (Locked by default for public viewers)
   const [isAdminMode, setIsAdminMode] = useState(false);
+  const [adminModuleState, setAdminModuleState] = useState({ admins: [], isAdmin: false });
 
   // Sponsors State with image, marquee text, and cell effect
   const [sponsors, setSponsors] = useState([
@@ -50,7 +52,6 @@ export default function SanviOlympicsPortal() {
     { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
   ]);
 
-  // Fetch central database data on load for all users
   // Fetch central database data on load for all users
   useEffect(() => {
     async function fetchCentralData() {
@@ -65,7 +66,6 @@ export default function SanviOlympicsPortal() {
           }
           if (json.sportsData) setSportsData(json.sportsData);
           
-          // Safe fallback for sponsors if empty or missing
           if (json.sponsors && json.sponsors.length > 0) {
             setSponsors(json.sponsors);
           } else {
@@ -85,39 +85,58 @@ export default function SanviOlympicsPortal() {
     fetchCentralData();
   }, []);
 
+  // Secure Write Action Wrapper (Governs write access via Admin Password)
+  const verifyAdminAndExecute = (actionCallback) => {
+    if (!isAdminMode) {
+      const pin = prompt('🔒 Admin Password Required to Edit/Save Changes:\n(Enter admin passcode)');
+      if (pin === 'admin123' || pin === 'sanvi2026') {
+        setIsAdminMode(true);
+        actionCallback();
+      } else if (pin !== null) {
+        alert('❌ Incorrect admin password. Changes cannot be saved.');
+      }
+    } else {
+      actionCallback();
+    }
+  };
+
   // Save changes centrally to the database server
   const saveToCentralServer = async (updatedParticipants, updatedSportsData, updatedSponsors) => {
-    try {
-      const res = await fetch('/api/portal-data', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          participants: updatedParticipants,
-          sportsData: updatedSportsData,
-          sponsors: updatedSponsors,
-        }),
-      });
-      if (!res.ok) {
-        throw new Error('Failed to save to server database.');
+    verifyAdminAndExecute(async () => {
+      try {
+        const res = await fetch('/api/portal-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            participants: updatedParticipants,
+            sportsData: updatedSportsData,
+            sponsors: updatedSponsors,
+          }),
+        });
+        if (!res.ok) {
+          throw new Error('Failed to save to server database.');
+        }
+      } catch (e) {
+        console.error('Server sync error:', e);
+        alert('⚠️ Error syncing with the central database server.');
       }
-    } catch (e) {
-      console.error('Server sync error:', e);
-      alert('⚠️ Error syncing with the central database server.');
-    }
+    });
   };
 
   const currentSportState = sportsData[activeSport.id] || {};
 
   const updateSportState = (updatedFields) => {
-    const updatedSportsData = {
-      ...sportsData,
-      [activeSport.id]: {
-        ...currentSportState,
-        ...updatedFields,
-      },
-    };
-    setSportsData(updatedSportsData);
-    saveToCentralServer(participants, updatedSportsData, sponsors);
+    verifyAdminAndExecute(() => {
+      const updatedSportsData = {
+        ...sportsData,
+        [activeSport.id]: {
+          ...currentSportState,
+          ...updatedFields,
+        },
+      };
+      setSportsData(updatedSportsData);
+      saveToCentralServer(participants, updatedSportsData, sponsors);
+    });
   };
 
   const filteredParticipants = participants.filter((p) => {
@@ -135,19 +154,21 @@ export default function SanviOlympicsPortal() {
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target.result;
-      const parsed = parseCSVParticipants(text);
-      if (parsed.length > 0) {
-        setParticipants(parsed);
-        saveToCentralServer(parsed, sportsData, sponsors);
-        alert(`Successfully imported ${parsed.length} registration records and saved to central database!`);
-      } else {
-        alert('Could not parse CSV.');
-      }
-    };
-    reader.readAsText(file);
+    verifyAdminAndExecute(() => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target.result;
+        const parsed = parseCSVParticipants(text);
+        if (parsed.length > 0) {
+          setParticipants(parsed);
+          saveToCentralServer(parsed, sportsData, sponsors);
+          alert(`Successfully imported ${parsed.length} registration records and saved to central database!`);
+        } else {
+          alert('Could not parse CSV.');
+        }
+      };
+      reader.readAsText(file);
+    });
   };
 
   const exportDatabaseBackup = () => {
@@ -163,33 +184,37 @@ export default function SanviOlympicsPortal() {
   const importDatabaseBackup = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const backup = JSON.parse(event.target.result);
-        const newParts = backup.participants || participants;
-        const newSports = backup.sportsData || sportsData;
-        const newSponsors = backup.sponsors || sponsors;
+    verifyAdminAndExecute(() => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const backup = JSON.parse(event.target.result);
+          const newParts = backup.participants || participants;
+          const newSports = backup.sportsData || sportsData;
+          const newSponsors = backup.sponsors || sponsors;
 
-        if (backup.participants) setParticipants(newParts);
-        if (backup.sportsData) setSportsData(newSports);
-        if (backup.sponsors) setSponsors(newSponsors);
+          if (backup.participants) setParticipants(newParts);
+          if (backup.sportsData) setSportsData(newSports);
+          if (backup.sponsors) setSponsors(newSponsors);
 
-        saveToCentralServer(newParts, newSports, newSponsors);
-        alert('Database restored successfully from backup and synced centrally!');
-      } catch (err) {
-        alert('Invalid backup JSON file.');
-      }
-    };
-    reader.readAsText(file);
+          saveToCentralServer(newParts, newSports, newSponsors);
+          alert('Database restored successfully from backup and synced centrally!');
+        } catch (err) {
+          alert('Invalid backup JSON file.');
+        }
+      };
+      reader.readAsText(file);
+    });
   };
 
   const handleResetGameData = () => {
-    if (window.confirm('Are you sure you want to reset all transaction and game data? This will clear all match fixtures, team setups, and scores across all sports.')) {
-      setSportsData({});
-      saveToCentralServer(participants, {}, sponsors);
-      alert('All transactional game data has been reset centrally.');
-    }
+    verifyAdminAndExecute(() => {
+      if (window.confirm('Are you sure you want to reset all transaction and game data? This will clear all match fixtures, team setups, and scores across all sports.')) {
+        setSportsData({});
+        saveToCentralServer(participants, {}, sponsors);
+        alert('All transactional game data has been reset centrally.');
+      }
+    });
   };
 
   return (
@@ -226,8 +251,8 @@ export default function SanviOlympicsPortal() {
                 if (isAdminMode) {
                   setIsAdminMode(false);
                 } else {
-                  const pin = prompt('Enter Admin Passcode / Local Key:');
-                  if (pin === 'admin123' || pin === 'sanvi2026' || pin === '') {
+                  const pin = prompt('Enter Admin Passcode / Password to Unlock Write Access:');
+                  if (pin === 'admin123' || pin === 'sanvi2026') {
                     setIsAdminMode(true);
                   } else if (pin !== null) {
                     alert('Incorrect passcode.');
@@ -246,13 +271,17 @@ export default function SanviOlympicsPortal() {
             <span>Active Sport: <strong className="text-amber-700">{activeSport.name}</strong></span>
             <span>|</span>
             <span className="text-emerald-600 font-bold">Total Records: {participants.length}</span>
+            <span>|</span>
+            <span className={isAdminMode ? "text-emerald-600 font-bold" : "text-amber-600 font-bold"}>
+              {isAdminMode ? "Access: Read / Write Enabled" : "Access: Public Read-Only"}
+            </span>
           </div>
         </div>
 
-        {/* Admin-only controls (hidden for general viewers) */}
+        {/* Admin-only controls (hidden for general public viewers) */}
         {isAdminMode && (
           <div className="flex flex-wrap items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200">
-            <span className="text-[10px] font-black text-amber-800 uppercase px-1">Admin Controls:</span>
+            <span className="text-[10px] font-black text-amber-800 uppercase px-1">ADMIN CONTROLS:</span>
             <label className="cursor-pointer bg-amber-500 hover:bg-amber-600 text-white font-black px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
               📁 Import CSV
               <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
@@ -271,28 +300,32 @@ export default function SanviOlympicsPortal() {
         )}
       </header>
 
+      {/* Admin Module Integration (Visible when Admin Mode is unlocked) */}
+      {isAdminMode && (
+        <AdminModule 
+          currentUser={{ email: 'admin@example.com' }} 
+          onAdminStateChange={(state) => setAdminModuleState(state)} 
+        />
+      )}
+
       {/* Official Event Sponsors Banner */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
 
-          {/* Social Media Connect Icons (Placed in the designated banner area) */}
+          {/* Social Media Connect Icons */}
           <div className="flex items-center gap-3">
             <span className="text-[10px] font-bold text-slate-400">Connect:</span>
             <div className="flex items-center gap-2">
-              {/* Facebook Link */}
               <a href="https://www.facebook.com/share/1GUem7jeuc/" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="Facebook">
                 <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
               </a>
-              {/* Instagram Link */}
               <a href="https://www.instagram.com/sanviolympics/?hl=en" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="Instagram">
                 <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
               </a>
-              {/* X Link */}
               <a href="https://x.com/SanviOlympics" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="X">
                 <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
               </a>
-              {/* YouTube Link */}
               <a href="https://youtube.com" target="_blank" rel="noopener noreferrer" className="w-7 h-7 rounded-full bg-slate-800 hover:bg-amber-600 text-white flex items-center justify-center transition shadow-sm" title="YouTube">
                 <svg className="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
               </a>
