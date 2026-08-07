@@ -27,16 +27,16 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
   // --------------------------------------------------------------------------
-  // AUTO-SCHEDULING ENGINE CONFIGURATION STATE (Variable matches per day)
+  // BATCH DATE-BY-DATE SCHEDULING ENGINE STATE
   // --------------------------------------------------------------------------
-  const [scheduleConfig, setScheduleConfig] = useState({
-    startDate: '2026-08-15',
-    startTime: '11:00',
-    matchesPerDay: 6,      // Variable number of matches allowed per specific date
-    matchDuration: 1,      // 1 hour per match slot
-    parallelCapacity: 3,   // 3 parallel matches per slot
-  });
   const [showScheduleConfig, setShowScheduleConfig] = useState(false);
+  const [batchConfig, setBatchConfig] = useState({
+    date: '2026-08-15',
+    startTime: '11:00',
+    matchCount: 4,         // Number of matches to schedule for this specific date batch
+    matchDuration: 1,      // 1 hour per match slot
+    parallelCapacity: 3,   // Parallel boards/matches per slot
+  });
 
   // Helper to format Date to '15Aug26' style
   const formatDateShort = (dateObj) => {
@@ -53,41 +53,34 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return `${h} ${ampm}`.replace(' ', '');
   };
 
-  // Auto-Scheduling Logic: Calculates Date & Time slot based on configurable daily match quota
-  const calculateMatchSchedule = (matchIndex, config = scheduleConfig) => {
-    const startD = new Date(config.startDate || '2026-08-15');
-    const startHour = parseInt((config.startTime || '11:00').split(':')[0], 10);
-    const matchesPerDay = Number(config.matchesPerDay) || 6;
-    const parallelCapacity = Number(config.parallelCapacity) || 3;
-    const matchDuration = Number(config.matchDuration) || 1;
+  // Initial Auto-Schedule for Round 1
+  const calculateInitialMatchSchedule = (matchIndex) => {
+    const startD = new Date('2026-08-15');
+    const startHour = 11;
+    const matchesPerDay = 6;
+    const parallelCapacity = 3;
+    const matchDuration = 1;
 
     const dayOffset = Math.floor(matchIndex / matchesPerDay);
     const matchIndexOnDay = matchIndex % matchesPerDay;
     const slotIndex = Math.floor(matchIndexOnDay / parallelCapacity);
 
-    // Compute actual date
     const currentDate = new Date(startD);
     currentDate.setDate(currentDate.getDate() + dayOffset);
     const dateStr = formatDateShort(currentDate);
 
-    // Compute start and end times for this slot
     const slotStartHour = startHour + (slotIndex * matchDuration);
     const slotEndHour = slotStartHour + matchDuration;
 
-    const startFormatted = formatHour12(slotStartHour);
-    const endFormatted = formatHour12(slotEndHour);
-
-    const timeSlotStr = `${startFormatted} to ${endFormatted}`;
-    const fullText = `Date:${dateStr} ${timeSlotStr}`;
-
+    const timeSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
     return {
       scheduledDate: dateStr,
       scheduledTimeSlot: timeSlotStr,
-      fullScheduleText: fullText,
+      fullScheduleText: `Date:${dateStr} ${timeSlotStr}`,
     };
   };
 
-  // Sync player schedules to sportState.playerSchedules with robust multi-key indexing for main tiles
+  // Sync player schedules to sportState.playerSchedules for main tile display
   const buildPlayerSchedulesMap = (updatedRoundsMap) => {
     const schedulesMap = { ...(sportState.playerSchedules || {}) };
 
@@ -113,7 +106,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
               if (player.regId) schedulesMap[player.regId] = scheduleEntry;
               if (player.Registration_ID) schedulesMap[player.Registration_ID] = scheduleEntry;
 
-              // Cross-reference original participants to register all matching ID attributes
               const origP = (participants || []).find(p => p.name?.trim().toLowerCase() === player.name?.trim().toLowerCase());
               if (origP) {
                 if (origP.id) schedulesMap[origP.id] = scheduleEntry;
@@ -221,7 +213,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const matches = [];
       for (let x = 0; x < standings.length; x++) {
         for (let y = x + 1; y < standings.length; y++) {
-          const sched = calculateMatchSchedule(globalMatchCounter++);
+          const sched = calculateInitialMatchSchedule(globalMatchCounter++);
 
           matches.push({
             id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
@@ -242,25 +234,50 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized & auto-scheduled for ${selectedCategory}! Matches scheduled starting ${scheduleConfig.startDate}.`);
+    alert(`Round 1 initialized & scheduled starting 15Aug26! You can now use Schedule Settings to batch-schedule specific dates (e.g. 16Aug, 19Aug).`);
   };
 
-  const handleRescheduleActiveRound = () => {
-    if (!rounds || rounds.length === 0) return;
+  // Apply Batch Date & Time to the next un-scheduled or selected range of matches in the current round
+  const handleApplyBatchSchedule = () => {
+    if (!rounds || rounds.length === 0) {
+      alert('Please initialize a round first.');
+      return;
+    }
 
-    let globalMatchCounter = 0;
+    const targetDateObj = new Date(batchConfig.date || '2026-08-16');
+    const dateStr = formatDateShort(targetDateObj);
+    const startHour = parseInt((batchConfig.startTime || '11:00').split(':')[0], 10);
+    const matchCountLimit = Number(batchConfig.matchCount) || 4;
+    const parallelCapacity = Number(batchConfig.parallelCapacity) || 3;
+    const matchDuration = Number(batchConfig.matchDuration) || 1;
+
+    let updatedMatchCounter = 0;
+    let scheduledSoFar = 0;
+
     const updatedRounds = rounds.map((r, rIdx) => {
       if (rIdx !== currentRoundIndex) return r;
 
       const updatedGroups = r.groups.map(grp => {
         const updatedMatches = grp.matches.map(m => {
-          const sched = calculateMatchSchedule(globalMatchCounter++);
-          return {
-            ...m,
-            scheduledDate: sched.scheduledDate,
-            scheduledTimeSlot: sched.scheduledTimeSlot,
-            fullScheduleText: sched.fullScheduleText,
-          };
+          // Check if this match is part of the batch quota
+          // We can apply to matches that match a criteria or sequentially assign the next un-scheduled batch
+          if (scheduledSoFar < matchCountLimit) {
+            const slotIndex = Math.floor(scheduledSoFar / parallelCapacity);
+            const slotStartHour = startHour + (slotIndex * matchDuration);
+            const slotEndHour = slotStartHour + matchDuration;
+
+            const timeSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
+            const fullText = `Date:${dateStr} ${timeSlotStr}`;
+
+            scheduledSoFar++;
+            return {
+              ...m,
+              scheduledDate: dateStr,
+              scheduledTimeSlot: timeSlotStr,
+              fullScheduleText: fullText,
+            };
+          }
+          return m;
         });
         return { ...grp, matches: updatedMatches };
       });
@@ -269,7 +286,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
 
     updateCurrentCategoryState(updatedRounds, currentRoundIndex);
-    alert(`Successfully rescheduled current round matches with updated date and time slots!`);
+    alert(`Successfully scheduled batch of ${scheduledSoFar} matches on ${dateStr} (${batchConfig.startTime} onwards)!`);
   };
 
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
@@ -333,7 +350,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const currentRound = rounds[currentRoundIndex];
     if (!currentRound) return;
 
-    // Strict validation: Ensure all matches in current round are completed
     const hasUncompletedMatches = currentRound.groups.some(grp =>
       grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
     );
@@ -350,7 +366,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       qualifiedPlayers.push(...topN);
     });
 
-    // Deduplicate qualified players
     const qSeenIds = new Set();
     const qSeenNames = new Set();
     const uniqueQualified = qualifiedPlayers.filter(p => {
@@ -397,7 +412,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const matches = [];
       for (let x = 0; x < standings.length; x++) {
         for (let y = x + 1; y < standings.length; y++) {
-          const sched = calculateMatchSchedule(globalMatchCounter++);
+          const sched = calculateInitialMatchSchedule(globalMatchCounter++);
 
           matches.push({
             id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
@@ -476,7 +491,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             onClick={() => setShowScheduleConfig(!showScheduleConfig)}
             className="bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold px-3 py-2 rounded-xl text-xs border border-slate-700"
           >
-            ⚙️ Schedule Settings
+            ⚙️ Schedule Settings & Batch Scheduler
           </button>
 
           {rounds.length === 0 && (
@@ -487,21 +502,24 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         </div>
       </div>
 
-      {/* AUTO-SCHEDULING CONFIGURATION PANEL */}
+      {/* BATCH DATE-BY-DATE SCHEDULING PANEL */}
       {showScheduleConfig && (
-        <div className="bg-slate-950 p-4 rounded-2xl border border-amber-500/30 text-xs space-y-4 shadow-2xl">
+        <div className="bg-slate-950 p-5 rounded-2xl border border-amber-500/30 text-xs space-y-4 shadow-2xl">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-            <h4 className="font-black text-amber-400 uppercase tracking-wider">📅 Auto-Scheduling & Variable Date Quota Configuration</h4>
-            <span className="text-slate-400 text-[10px]">Controls matches per date, time slots, & participant tiles</span>
+            <div>
+              <h4 className="font-black text-amber-400 uppercase tracking-wider">📅 Batch Date-by-Date Match Scheduler</h4>
+              <p className="text-slate-400 text-[11px] mt-0.5">Select specific dates (e.g. 15Aug, 16Aug, 19Aug), start times, and match counts to schedule remaining matches in batches.</p>
+            </div>
+            <span className="bg-amber-500/10 text-amber-400 px-2.5 py-1 rounded font-bold border border-amber-500/20 text-[10px]">Active Category: {selectedCategory}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
             <div>
-              <label className="text-slate-400 font-bold block mb-1">Start Date:</label>
+              <label className="text-slate-400 font-bold block mb-1">Select Date (e.g. 16Aug):</label>
               <input
                 type="date"
-                value={scheduleConfig.startDate}
-                onChange={(e) => setScheduleConfig({ ...scheduleConfig, startDate: e.target.value })}
+                value={batchConfig.date}
+                onChange={(e) => setBatchConfig({ ...batchConfig, date: e.target.value })}
                 className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
               />
             </div>
@@ -510,32 +528,33 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
               <label className="text-slate-400 font-bold block mb-1">Start Time:</label>
               <input
                 type="time"
-                value={scheduleConfig.startTime}
-                onChange={(e) => setScheduleConfig({ ...scheduleConfig, startTime: e.target.value })}
+                value={batchConfig.startTime}
+                onChange={(e) => setBatchConfig({ ...batchConfig, startTime: e.target.value })}
                 className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
               />
             </div>
 
             <div>
-              <label className="text-slate-400 font-bold block mb-1">Matches Per Date:</label>
+              <label className="text-slate-400 font-bold block mb-1">Matches for this Date:</label>
               <select
-                value={scheduleConfig.matchesPerDay}
-                onChange={(e) => setScheduleConfig({ ...scheduleConfig, matchesPerDay: Number(e.target.value) })}
+                value={batchConfig.matchCount}
+                onChange={(e) => setBatchConfig({ ...batchConfig, matchCount: Number(e.target.value) })}
                 className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
               >
-                <option value={2}>2 Matches / day</option>
-                <option value={4}>4 Matches / day</option>
-                <option value={6}>6 Matches / day</option>
-                <option value={8}>8 Matches / day</option>
-                <option value={12}>12 Matches / day</option>
+                <option value={2}>2 Matches</option>
+                <option value={3}>3 Matches</option>
+                <option value={4}>4 Matches</option>
+                <option value={6}>6 Matches</option>
+                <option value={8}>8 Matches</option>
+                <option value={12}>12 Matches</option>
               </select>
             </div>
 
             <div>
               <label className="text-slate-400 font-bold block mb-1">Match Duration:</label>
               <select
-                value={scheduleConfig.matchDuration}
-                onChange={(e) => setScheduleConfig({ ...scheduleConfig, matchDuration: Number(e.target.value) })}
+                value={batchConfig.matchDuration}
+                onChange={(e) => setBatchConfig({ ...batchConfig, matchDuration: Number(e.target.value) })}
                 className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
               >
                 <option value={0.5}>30 Mins</option>
@@ -548,8 +567,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             <div>
               <label className="text-slate-400 font-bold block mb-1">Parallel Matches:</label>
               <select
-                value={scheduleConfig.parallelCapacity}
-                onChange={(e) => setScheduleConfig({ ...scheduleConfig, parallelCapacity: Number(e.target.value) })}
+                value={batchConfig.parallelCapacity}
+                onChange={(e) => setBatchConfig({ ...batchConfig, parallelCapacity: Number(e.target.value) })}
                 className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
               >
                 <option value={1}>1 Match at a time</option>
@@ -563,10 +582,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           {rounds.length > 0 && (
             <div className="pt-2 flex justify-end">
               <button
-                onClick={handleRescheduleActiveRound}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow"
+                onClick={handleApplyBatchSchedule}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs shadow-lg flex items-center gap-2"
               >
-                🔄 Apply Schedule Quota to Active Round Matches
+                <span>➕ Schedule Batch on {batchConfig.date}</span>
               </button>
             </div>
           )}
