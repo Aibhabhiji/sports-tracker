@@ -73,7 +73,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   };
 
-  // Sync player schedules to sportState.playerSchedules for main tile display
+  // Sync player schedules strictly for Chess participants to sportState.playerSchedules for main tile display
   const buildPlayerSchedulesMap = (updatedRoundsMap) => {
     const schedulesMap = { ...(sportState.playerSchedules || {}) };
 
@@ -268,7 +268,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     setEditingMatchScheduleId(null);
     setTempScheduleDate('');
     setTempScheduleTime('');
-    alert(`Match schedule updated successfully to ${fullText}!`);
+    alert(`Match schedule updated successfully to ${fullText}! Main tiles updated.`);
   };
 
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
@@ -445,7 +445,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
-          <p className="text-xs text-slate-400">Independent category tournaments, player exclusivity mutex, zero-duplication grouping, multi-round progression & individual match scheduling.</p>
+          <p className="text-xs text-slate-400">Independent category tournaments, player exclusivity mutex, zero-duplication grouping, multi-round progression & main-tile schedule synchronization.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -517,7 +517,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           <div className="flex justify-between items-center">
             <div>
               <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">{selectedCategory} — {currentRound.roundName} Leaderboards & Groups</h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">Click directly on any schedule badge below to customize its date (e.g. 15Aug, 16Aug, 19Aug) and time slot.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Click directly on any schedule badge below to customize its date and time slot (instantly updates main participant tiles).</p>
             </div>
             
             {!isGrandFinale ? (
