@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 
-export default function ChessAdvancedModule({ participants, sportState, onUpdateSportState }) {
-  // Predefined standard categories + dynamic categories extracted from participants
+export default function ChessAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
+  // Standard categories + dynamic categories extracted from participants
   const defaultCategories = ['Open', 'Under 12 Kids', '12 - 17 years Teens', '18 - 55 years Adults', '55+ years Seniors', 'Kids', 'Male', 'Female', 'Under 16', 'Veterans'];
   const dynamicCategories = Array.from(new Set(
     (participants || []).flatMap(p => [
@@ -26,7 +26,99 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
-  // Filter participants for current category flexibly without cross-category lockouts
+  // --------------------------------------------------------------------------
+  // AUTO-SCHEDULING ENGINE CONFIGURATION STATE
+  // --------------------------------------------------------------------------
+  const [scheduleConfig, setScheduleConfig] = useState({
+    startDate: '2026-08-15',
+    startTime: '11:00',
+    allottedHours: 4,     // e.g., 11 AM to 3 PM
+    matchDuration: 1,      // 1 hour per match
+    parallelCapacity: 3,   // 3 parallel matches per slot
+  });
+  const [showScheduleConfig, setShowScheduleConfig] = useState(false);
+
+  // Helper to format Date to '15Aug26' style
+  const formatDateShort = (dateObj) => {
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    const month = dateObj.toLocaleString('en-US', { month: 'short' });
+    const year = String(dateObj.getFullYear()).slice(-2);
+    return `${day}${month}${year}`;
+  };
+
+  // Helper to format Hour (24h to 12h AM/PM string)
+  const formatHour12 = (hour24) => {
+    const h = hour24 % 12 || 12;
+    const ampm = hour24 >= 12 && hour24 < 24 ? 'PM' : 'AM';
+    return `${h} ${ampm}`.replace(' ', '');
+  };
+
+  // Auto-Scheduling Logic: Calculates Date & Time slot for each match index
+  const calculateMatchSchedule = (matchIndex, config = scheduleConfig) => {
+    const startD = new Date(config.startDate || '2026-08-15');
+    const startHour = parseInt((config.startTime || '11:00').split(':')[0], 10);
+    const slotsPerDay = Math.floor(config.allottedHours / config.matchDuration) || 1;
+    const totalCapacityPerDay = slotsPerDay * config.parallelCapacity;
+
+    const dayOffset = Math.floor(matchIndex / totalCapacityPerDay);
+    const matchIndexWithinDay = matchIndex % totalCapacityPerDay;
+
+    const slotIndex = Math.floor(matchIndexWithinDay / config.parallelCapacity);
+
+    // Compute actual date
+    const currentDate = new Date(startD);
+    currentDate.setDate(currentDate.getDate() + dayOffset);
+    const dateStr = formatDateShort(currentDate);
+
+    // Compute start and end times for this slot
+    const slotStartHour = startHour + (slotIndex * config.matchDuration);
+    const slotEndHour = slotStartHour + config.matchDuration;
+
+    const startFormatted = formatHour12(slotStartHour);
+    const endFormatted = formatHour12(slotEndHour);
+
+    const timeSlotStr = `${startFormatted} to ${endFormatted}`;
+    const fullText = `Date:${dateStr} ${timeSlotStr}`;
+
+    return {
+      scheduledDate: dateStr,
+      scheduledTimeSlot: timeSlotStr,
+      fullScheduleText: fullText,
+    };
+  };
+
+  // Sync player schedules to sportState.playerSchedules for Tile Display sync
+  const buildPlayerSchedulesMap = (updatedRoundsMap) => {
+    const schedulesMap = { ...(sportState.playerSchedules || {}) };
+
+    Object.entries(updatedRoundsMap).forEach(([catKey, catData]) => {
+      const catRounds = catData?.rounds || [];
+      catRounds.forEach(r => {
+        (r.groups || []).forEach(g => {
+          (g.matches || []).forEach(m => {
+            if (m.playerA?.id) {
+              schedulesMap[m.playerA.id] = {
+                scheduledText: m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`,
+                roundName: r.roundName,
+                category: catKey,
+              };
+            }
+            if (m.playerB?.id) {
+              schedulesMap[m.playerB.id] = {
+                scheduledText: m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`,
+                roundName: r.roundName,
+                category: catKey,
+              };
+            }
+          });
+        });
+      });
+    });
+
+    return schedulesMap;
+  };
+
+  // Filter participants for current category
   const rawFiltered = (participants || []).filter(p => {
     if (!selectedCategory || selectedCategory === 'Open' || selectedCategory === 'All') return true;
 
@@ -57,7 +149,7 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
     return pCat.includes(catStr) || pAgeGroup.includes(catStr);
   });
 
-  // Strict deduplication by ID and normalized Name to prevent duplicate entries
+  // Strict deduplication by ID and normalized Name
   const seenIds = new Set();
   const seenNames = new Set();
   const filteredParticipants = rawFiltered.filter(p => {
@@ -78,7 +170,9 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
         currentRoundIndex: newRoundIndex !== undefined ? newRoundIndex : currentRoundIndex,
       }
     };
-    onUpdateSportState({ categoryRounds: updatedMap });
+    
+    const updatedPlayerSchedules = buildPlayerSchedulesMap(updatedMap);
+    onUpdateSportState({ categoryRounds: updatedMap, playerSchedules: updatedPlayerSchedules });
   };
 
   const handleInitializeRound1 = () => {
@@ -90,6 +184,7 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
     const shuffled = [...filteredParticipants].sort(() => 0.5 - Math.random());
     const initialGroups = [];
     let groupCharCode = 65;
+    let globalMatchCounter = 0;
 
     for (let i = 0; i < shuffled.length; i += groupSize) {
       const groupPlayers = shuffled.slice(i, i + groupSize);
@@ -109,6 +204,8 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
       const matches = [];
       for (let x = 0; x < standings.length; x++) {
         for (let y = x + 1; y < standings.length; y++) {
+          const sched = calculateMatchSchedule(globalMatchCounter++);
+
           matches.push({
             id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
             playerA: standings[x],
@@ -116,6 +213,9 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
             scoreA: null,
             scoreB: null,
             isLocked: false,
+            scheduledDate: sched.scheduledDate,
+            scheduledTimeSlot: sched.scheduledTimeSlot,
+            fullScheduleText: sched.fullScheduleText,
           });
         }
       }
@@ -123,9 +223,36 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
       initialGroups.push({ groupName, standings, matches });
     }
 
-    const newRounds = [{ roundName: 'Round 1 (Group Stage)', groups: initialGroups }];
+    const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for category: ${selectedCategory} with ${initialGroups.length} groups!`);
+    alert(`Round 1 initialized & auto-scheduled for ${selectedCategory}! Matches scheduled starting ${scheduleConfig.startDate}.`);
+  };
+
+  const handleRescheduleActiveRound = () => {
+    if (!rounds || rounds.length === 0) return;
+
+    let globalMatchCounter = 0;
+    const updatedRounds = rounds.map((r, rIdx) => {
+      if (rIdx !== currentRoundIndex) return r;
+
+      const updatedGroups = r.groups.map(grp => {
+        const updatedMatches = grp.matches.map(m => {
+          const sched = calculateMatchSchedule(globalMatchCounter++);
+          return {
+            ...m,
+            scheduledDate: sched.scheduledDate,
+            scheduledTimeSlot: sched.scheduledTimeSlot,
+            fullScheduleText: sched.fullScheduleText,
+          };
+        });
+        return { ...grp, matches: updatedMatches };
+      });
+
+      return { ...r, groups: updatedGroups };
+    });
+
+    updateCurrentCategoryState(updatedRounds, currentRoundIndex);
+    alert(`Successfully rescheduled current round matches with updated date and time slots!`);
   };
 
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
@@ -189,7 +316,7 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
     const currentRound = rounds[currentRoundIndex];
     if (!currentRound) return;
 
-    // Strict validation: Ensure all matches in all groups of the current round are completed
+    // Strict validation: Ensure all matches in current round are completed
     const hasUncompletedMatches = currentRound.groups.some(grp =>
       grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
     );
@@ -206,7 +333,7 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
       qualifiedPlayers.push(...topN);
     });
 
-    // Deduplicate qualified players to ensure zero duplication in next round
+    // Deduplicate qualified players
     const qSeenIds = new Set();
     const qSeenNames = new Set();
     const uniqueQualified = qualifiedPlayers.filter(p => {
@@ -222,7 +349,7 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
       return;
     }
 
-    let nextRoundName = 'Next Round';
+    let nextRoundName = `Round ${rounds.length + 1}`;
     if (uniqueQualified.length === 8) nextRoundName = 'Quarter Finals';
     else if (uniqueQualified.length === 4) nextRoundName = 'Semi Finals';
     else if (uniqueQualified.length <= 2) nextRoundName = 'Grand Finals 🏆';
@@ -231,6 +358,7 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
     const nextGroups = [];
     let groupCharCode = 65;
     const currentGroupSize = uniqueQualified.length <= 4 ? uniqueQualified.length : groupSize;
+    let globalMatchCounter = 0;
 
     for (let i = 0; i < shuffled.length; i += currentGroupSize) {
       const groupPlayers = shuffled.slice(i, i + currentGroupSize);
@@ -250,6 +378,8 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
       const matches = [];
       for (let x = 0; x < standings.length; x++) {
         for (let y = x + 1; y < standings.length; y++) {
+          const sched = calculateMatchSchedule(globalMatchCounter++);
+
           matches.push({
             id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
             playerA: standings[x],
@@ -257,6 +387,9 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
             scoreA: null,
             scoreB: null,
             isLocked: false,
+            scheduledDate: sched.scheduledDate,
+            scheduledTimeSlot: sched.scheduledTimeSlot,
+            fullScheduleText: sched.fullScheduleText,
           });
         }
       }
@@ -320,6 +453,13 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
             </select>
           </div>
 
+          <button 
+            onClick={() => setShowScheduleConfig(!showScheduleConfig)}
+            className="bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold px-3 py-2 rounded-xl text-xs border border-slate-700"
+          >
+            ⚙️ Schedule Settings
+          </button>
+
           {rounds.length === 0 && (
             <button onClick={handleInitializeRound1} className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow">
               🚀 Start Round 1 ({selectedCategory})
@@ -327,6 +467,92 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
           )}
         </div>
       </div>
+
+      {/* AUTO-SCHEDULING CONFIGURATION PANEL */}
+      {showScheduleConfig && (
+        <div className="bg-slate-950 p-4 rounded-2xl border border-amber-500/30 text-xs space-y-4 shadow-2xl">
+          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+            <h4 className="font-black text-amber-400 uppercase tracking-wider">📅 Auto-Scheduling & Time-Slot Configuration</h4>
+            <span className="text-slate-400 text-[10px]">Applies date/time slots to matches & participant cards</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+            <div>
+              <label className="text-slate-400 font-bold block mb-1">Start Date:</label>
+              <input
+                type="date"
+                value={scheduleConfig.startDate}
+                onChange={(e) => setScheduleConfig({ ...scheduleConfig, startDate: e.target.value })}
+                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-400 font-bold block mb-1">Start Time:</label>
+              <input
+                type="time"
+                value={scheduleConfig.startTime}
+                onChange={(e) => setScheduleConfig({ ...scheduleConfig, startTime: e.target.value })}
+                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-400 font-bold block mb-1">Daily Hours Window:</label>
+              <select
+                value={scheduleConfig.allottedHours}
+                onChange={(e) => setScheduleConfig({ ...scheduleConfig allottedHours: Number(e.target.value) })}
+                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
+              >
+                <option value={2}>2 Hours</option>
+                <option value={3}>3 Hours</option>
+                <option value={4}>4 Hours (e.g. 11 AM - 3 PM)</option>
+                <option value={6}>6 Hours</option>
+                <option value={8}>8 Hours</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-slate-400 font-bold block mb-1">Match Duration:</label>
+              <select
+                value={scheduleConfig.matchDuration}
+                onChange={(e) => setScheduleConfig({ ...scheduleConfig, matchDuration: Number(e.target.value) })}
+                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
+              >
+                <option value={0.5}>30 Mins</option>
+                <option value={1}>1 Hour per match</option>
+                <option value={1.5}>1.5 Hours</option>
+                <option value={2}>2 Hours</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-slate-400 font-bold block mb-1">Parallel Matches:</label>
+              <select
+                value={scheduleConfig.parallelCapacity}
+                onChange={(e) => setScheduleConfig({ ...scheduleConfig, parallelCapacity: Number(e.target.value) })}
+                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
+              >
+                <option value={1}>1 Match at a time</option>
+                <option value={2}>2 Matches in parallel</option>
+                <option value={3}>3 Matches in parallel</option>
+                <option value={4}>4 Matches in parallel</option>
+              </select>
+            </div>
+          </div>
+
+          {rounds.length > 0 && (
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={handleRescheduleActiveRound}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow"
+              >
+                🔄 Apply Schedule Settings to Active Round Matches
+              </button>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Admin Security Bar */}
       <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
@@ -419,13 +645,20 @@ export default function ChessAdvancedModule({ participants, sportState, onUpdate
                   </tbody>
                 </table>
 
-                {/* Grid Scorekeeping Matrix */}
+                {/* Grid Scorekeeping Matrix with Auto-Scheduled Date/Time Badges */}
                 <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Match Score Grid</span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Match Score Grid & Schedule</span>
                   {grp.matches.map((m) => (
                     <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <div className="text-xs font-bold text-slate-200">
-                        {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
+                      <div className="space-y-1">
+                        <div className="text-xs font-bold text-slate-200">
+                          {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
+                        </div>
+                        
+                        {/* Red Rectangle Schedule Badge Sync matching tile requirement */}
+                        <div className="inline-block bg-rose-950/50 border border-rose-500/60 px-2 py-0.5 rounded text-[10px] font-bold text-rose-300">
+                          Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})
+                        </div>
                       </div>
 
                       {m.isLocked && !isAdminUnlocked ? (
