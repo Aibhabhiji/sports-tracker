@@ -501,7 +501,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
               <label className="text-slate-400 font-bold block mb-1">Daily Hours Window:</label>
               <select
                 value={scheduleConfig.allottedHours}
-                onChange={(e) => setScheduleConfig({ ...scheduleConfig allottedHours: Number(e.target.value) })}
+                onChange={(e) => setScheduleConfig({ ...scheduleConfig, allottedHours: Number(e.target.value) })}
                 className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
               >
                 <option value={2}>2 Hours</option>
