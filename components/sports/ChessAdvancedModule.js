@@ -87,7 +87,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   };
 
-  // Sync player schedules to sportState.playerSchedules for Tile Display sync
+  // Sync player schedules to sportState.playerSchedules with robust multi-key indexing for main tiles
   const buildPlayerSchedulesMap = (updatedRoundsMap) => {
     const schedulesMap = { ...(sportState.playerSchedules || {}) };
 
@@ -96,20 +96,34 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       catRounds.forEach(r => {
         (r.groups || []).forEach(g => {
           (g.matches || []).forEach(m => {
-            if (m.playerA?.id) {
-              schedulesMap[m.playerA.id] = {
-                scheduledText: m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`,
+            const assignScheduleToPlayer = (player) => {
+              if (!player) return;
+              const textVal = m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`;
+              const scheduleEntry = {
+                scheduledText: textVal,
+                text: textVal,
+                date: m.scheduledDate,
+                time: m.scheduledTimeSlot,
                 roundName: r.roundName,
                 category: catKey,
+                toString: () => textVal
               };
-            }
-            if (m.playerB?.id) {
-              schedulesMap[m.playerB.id] = {
-                scheduledText: m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`,
-                roundName: r.roundName,
-                category: catKey,
-              };
-            }
+
+              if (player.id) schedulesMap[player.id] = scheduleEntry;
+              if (player.regId) schedulesMap[player.regId] = scheduleEntry;
+              if (player.Registration_ID) schedulesMap[player.Registration_ID] = scheduleEntry;
+
+              // Cross-reference original participants to register all matching ID attributes
+              const origP = (participants || []).find(p => p.name?.trim().toLowerCase() === player.name?.trim().toLowerCase());
+              if (origP) {
+                if (origP.id) schedulesMap[origP.id] = scheduleEntry;
+                if (origP.regId) schedulesMap[origP.regId] = scheduleEntry;
+                if (origP.Registration_ID) schedulesMap[origP.Registration_ID] = scheduleEntry;
+              }
+            };
+
+            assignScheduleToPlayer(m.playerA);
+            assignScheduleToPlayer(m.playerB);
           });
         });
       });
@@ -154,10 +168,11 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const seenNames = new Set();
   const filteredParticipants = rawFiltered.filter(p => {
     const normName = p.name?.trim().toLowerCase();
-    if (seenIds.has(p.id) || (normName && seenNames.has(normName))) {
+    const pid = p.id || p.regId || p.Registration_ID;
+    if ((pid && seenIds.has(pid)) || (normName && seenNames.has(normName))) {
       return false;
     }
-    seenIds.add(p.id);
+    if (pid) seenIds.add(pid);
     if (normName) seenNames.add(normName);
     return true;
   });
@@ -191,7 +206,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const groupName = `Group ${String.fromCharCode(groupCharCode++)}`;
       
       const standings = groupPlayers.map(p => ({
-        id: p.id,
+        id: p.id || p.regId || p.Registration_ID || `p_${Math.random()}`,
+        regId: p.regId,
+        Registration_ID: p.Registration_ID,
         name: p.name,
         flat: p.flat,
         played: 0,
@@ -338,8 +355,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const qSeenNames = new Set();
     const uniqueQualified = qualifiedPlayers.filter(p => {
       const normName = p.name?.trim().toLowerCase();
-      if (qSeenIds.has(p.id) || (normName && qSeenNames.has(normName))) return false;
-      qSeenIds.add(p.id);
+      if ((p.id && qSeenIds.has(p.id)) || (normName && qSeenNames.has(normName))) return false;
+      if (p.id) qSeenIds.add(p.id);
       if (normName) qSeenNames.add(normName);
       return true;
     });
@@ -366,6 +383,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       
       const standings = groupPlayers.map(p => ({
         id: p.id,
+        regId: p.regId,
+        Registration_ID: p.Registration_ID,
         name: p.name,
         flat: p.flat,
         played: 0,
@@ -473,7 +492,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         <div className="bg-slate-950 p-4 rounded-2xl border border-amber-500/30 text-xs space-y-4 shadow-2xl">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
             <h4 className="font-black text-amber-400 uppercase tracking-wider">📅 Auto-Scheduling & Time-Slot Configuration</h4>
-            <span className="text-slate-400 text-[10px]">Applies date/time slots to matches & participant cards</span>
+            <span className="text-slate-400 text-[10px]">Applies date/time slots to matches & participant tiles</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
