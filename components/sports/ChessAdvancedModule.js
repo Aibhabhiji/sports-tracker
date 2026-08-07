@@ -26,17 +26,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
-  // --------------------------------------------------------------------------
-  // BATCH DATE-BY-DATE SCHEDULING ENGINE STATE
-  // --------------------------------------------------------------------------
-  const [showScheduleConfig, setShowScheduleConfig] = useState(false);
-  const [batchConfig, setBatchConfig] = useState({
-    date: '2026-08-15',
-    startTime: '11:00',
-    matchCount: 4,         // Number of matches to schedule for this specific date batch
-    matchDuration: 1,      // 1 hour per match slot
-    parallelCapacity: 3,   // Parallel boards/matches per slot
-  });
+  // Track which specific match schedule is currently being edited
+  const [editingMatchScheduleId, setEditingMatchScheduleId] = useState(null);
+  const [tempScheduleDate, setTempScheduleDate] = useState('');
+  const [tempScheduleTime, setTempScheduleTime] = useState('');
 
   // Helper to format Date to '15Aug26' style
   const formatDateShort = (dateObj) => {
@@ -234,51 +227,37 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized & scheduled starting 15Aug26! You can now use Schedule Settings to batch-schedule specific dates (e.g. 16Aug, 19Aug).`);
+    alert(`Round 1 initialized for ${selectedCategory}! You can now click "✏️ Edit Schedule" on any individual match to customize its date and time.`);
   };
 
-  // Apply Batch Date & Time to the next un-scheduled or selected range of matches in the current round
-  const handleApplyBatchSchedule = () => {
-    if (!rounds || rounds.length === 0) {
-      alert('Please initialize a round first.');
+  // Update a single specific match's schedule independently
+  const handleSaveIndividualSchedule = (groupIndex, matchId) => {
+    if (!tempScheduleDate || !tempScheduleTime) {
+      alert('Please provide both a valid date and time slot.');
       return;
     }
 
-    const targetDateObj = new Date(batchConfig.date || '2026-08-16');
-    const dateStr = formatDateShort(targetDateObj);
-    const startHour = parseInt((batchConfig.startTime || '11:00').split(':')[0], 10);
-    const matchCountLimit = Number(batchConfig.matchCount) || 4;
-    const parallelCapacity = Number(batchConfig.parallelCapacity) || 3;
-    const matchDuration = Number(batchConfig.matchDuration) || 1;
-
-    let updatedMatchCounter = 0;
-    let scheduledSoFar = 0;
+    const formattedDate = formatDateShort(new Date(tempScheduleDate));
+    const fullText = `Date:${formattedDate} ${tempScheduleTime}`;
 
     const updatedRounds = rounds.map((r, rIdx) => {
       if (rIdx !== currentRoundIndex) return r;
 
-      const updatedGroups = r.groups.map(grp => {
+      const updatedGroups = r.groups.map((grp, gIdx) => {
+        if (gIdx !== groupIndex) return grp;
+
         const updatedMatches = grp.matches.map(m => {
-          // Check if this match is part of the batch quota
-          // We can apply to matches that match a criteria or sequentially assign the next un-scheduled batch
-          if (scheduledSoFar < matchCountLimit) {
-            const slotIndex = Math.floor(scheduledSoFar / parallelCapacity);
-            const slotStartHour = startHour + (slotIndex * matchDuration);
-            const slotEndHour = slotStartHour + matchDuration;
-
-            const timeSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
-            const fullText = `Date:${dateStr} ${timeSlotStr}`;
-
-            scheduledSoFar++;
+          if (m.id === matchId) {
             return {
               ...m,
-              scheduledDate: dateStr,
-              scheduledTimeSlot: timeSlotStr,
+              scheduledDate: formattedDate,
+              scheduledTimeSlot: tempScheduleTime,
               fullScheduleText: fullText,
             };
           }
           return m;
         });
+
         return { ...grp, matches: updatedMatches };
       });
 
@@ -286,7 +265,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
 
     updateCurrentCategoryState(updatedRounds, currentRoundIndex);
-    alert(`Successfully scheduled batch of ${scheduledSoFar} matches on ${dateStr} (${batchConfig.startTime} onwards)!`);
+    setEditingMatchScheduleId(null);
+    setTempScheduleDate('');
+    setTempScheduleTime('');
+    alert(`Match schedule updated successfully to ${fullText}!`);
   };
 
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
@@ -463,7 +445,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
-          <p className="text-xs text-slate-400">Independent category tournaments, player exclusivity mutex, zero-duplication grouping, multi-round progression & grid scorekeeping.</p>
+          <p className="text-xs text-slate-400">Independent category tournaments, player exclusivity mutex, zero-duplication grouping, multi-round progression & individual match scheduling.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -487,13 +469,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             </select>
           </div>
 
-          <button 
-            onClick={() => setShowScheduleConfig(!showScheduleConfig)}
-            className="bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold px-3 py-2 rounded-xl text-xs border border-slate-700"
-          >
-            ⚙️ Schedule Settings & Batch Scheduler
-          </button>
-
           {rounds.length === 0 && (
             <button onClick={handleInitializeRound1} className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow">
               🚀 Start Round 1 ({selectedCategory})
@@ -501,96 +476,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           )}
         </div>
       </div>
-
-      {/* BATCH DATE-BY-DATE SCHEDULING PANEL */}
-      {showScheduleConfig && (
-        <div className="bg-slate-950 p-5 rounded-2xl border border-amber-500/30 text-xs space-y-4 shadow-2xl">
-          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-            <div>
-              <h4 className="font-black text-amber-400 uppercase tracking-wider">📅 Batch Date-by-Date Match Scheduler</h4>
-              <p className="text-slate-400 text-[11px] mt-0.5">Select specific dates (e.g. 15Aug, 16Aug, 19Aug), start times, and match counts to schedule remaining matches in batches.</p>
-            </div>
-            <span className="bg-amber-500/10 text-amber-400 px-2.5 py-1 rounded font-bold border border-amber-500/20 text-[10px]">Active Category: {selectedCategory}</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
-            <div>
-              <label className="text-slate-400 font-bold block mb-1">Select Date (e.g. 16Aug):</label>
-              <input
-                type="date"
-                value={batchConfig.date}
-                onChange={(e) => setBatchConfig({ ...batchConfig, date: e.target.value })}
-                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 font-bold block mb-1">Start Time:</label>
-              <input
-                type="time"
-                value={batchConfig.startTime}
-                onChange={(e) => setBatchConfig({ ...batchConfig, startTime: e.target.value })}
-                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="text-slate-400 font-bold block mb-1">Matches for this Date:</label>
-              <select
-                value={batchConfig.matchCount}
-                onChange={(e) => setBatchConfig({ ...batchConfig, matchCount: Number(e.target.value) })}
-                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
-              >
-                <option value={2}>2 Matches</option>
-                <option value={3}>3 Matches</option>
-                <option value={4}>4 Matches</option>
-                <option value={6}>6 Matches</option>
-                <option value={8}>8 Matches</option>
-                <option value={12}>12 Matches</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-slate-400 font-bold block mb-1">Match Duration:</label>
-              <select
-                value={batchConfig.matchDuration}
-                onChange={(e) => setBatchConfig({ ...batchConfig, matchDuration: Number(e.target.value) })}
-                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
-              >
-                <option value={0.5}>30 Mins</option>
-                <option value={1}>1 Hour per match</option>
-                <option value={1.5}>1.5 Hours</option>
-                <option value={2}>2 Hours</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="text-slate-400 font-bold block mb-1">Parallel Matches:</label>
-              <select
-                value={batchConfig.parallelCapacity}
-                onChange={(e) => setBatchConfig({ ...batchConfig, parallelCapacity: Number(e.target.value) })}
-                className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
-              >
-                <option value={1}>1 Match at a time</option>
-                <option value={2}>2 Matches in parallel</option>
-                <option value={3}>3 Matches in parallel</option>
-                <option value={4}>4 Matches in parallel</option>
-              </select>
-            </div>
-          </div>
-
-          {rounds.length > 0 && (
-            <div className="pt-2 flex justify-end">
-              <button
-                onClick={handleApplyBatchSchedule}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-5 py-2.5 rounded-xl text-xs shadow-lg flex items-center gap-2"
-              >
-                <span>➕ Schedule Batch on {batchConfig.date}</span>
-              </button>
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Admin Security Bar */}
       <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
@@ -630,7 +515,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       {currentRound ? (
         <div className="space-y-8">
           <div className="flex justify-between items-center">
-            <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">{selectedCategory} — {currentRound.roundName} Leaderboards & Groups</h4>
+            <div>
+              <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">{selectedCategory} — {currentRound.roundName} Leaderboards & Groups</h4>
+              <p className="text-[11px] text-slate-400 mt-0.5">Click ✏️ Edit Schedule on any match below to set a custom date (e.g. 15Aug, 16Aug, 19Aug) and time slot.</p>
+            </div>
             
             {!isGrandFinale ? (
               <button onClick={handleAdvanceToNextRound} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs shadow">
@@ -683,62 +571,112 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                   </tbody>
                 </table>
 
-                {/* Grid Scorekeeping Matrix with Auto-Scheduled Date/Time Badges */}
+                {/* Grid Scorekeeping Matrix with Individual Match Schedule Override */}
                 <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Match Score Grid & Schedule</span>
                   {grp.matches.map((m) => (
-                    <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-                      <div className="space-y-1">
-                        <div className="text-xs font-bold text-slate-200">
-                          {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
+                    <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <div className="space-y-1">
+                          <div className="text-xs font-bold text-slate-200">
+                            {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
+                          </div>
+                          
+                          {/* Schedule Badge with Edit Button */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="inline-block bg-rose-950/50 border border-rose-500/60 px-2 py-0.5 rounded text-[10px] font-bold text-rose-300">
+                              Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})
+                            </div>
+                            <button
+                              onClick={() => {
+                                setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
+                                setTempScheduleDate('2026-08-15');
+                                setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
+                              }}
+                              className="text-[10px] text-amber-400 hover:text-amber-300 font-bold bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20"
+                            >
+                              ✏️ {editingMatchScheduleId === m.id ? 'Cancel' : 'Edit Schedule'}
+                            </button>
+                          </div>
                         </div>
-                        
-                        {/* Red Rectangle Schedule Badge Sync matching tile requirement */}
-                        <div className="inline-block bg-rose-950/50 border border-rose-500/60 px-2 py-0.5 rounded text-[10px] font-bold text-rose-300">
-                          Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})
-                        </div>
+
+                        {m.isLocked && !isAdminUnlocked ? (
+                          <div className="flex items-center gap-3">
+                            <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">
+                              Result: {m.scoreA} - {m.scoreB}
+                            </span>
+                            <span className="text-[10px] text-slate-500">Locked 🔒</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <select
+                              value={m.scoreA !== null ? m.scoreA : ''}
+                              onChange={(e) => {
+                                const valA = Number(e.target.value);
+                                const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
+                                updateMatchScore(gIdx, m.id, valA, valB);
+                              }}
+                              className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
+                            >
+                              <option value="" disabled>{m.playerA.name} Score</option>
+                              <option value={1}>1 (Win)</option>
+                              <option value={0.5}>0.5 (Draw)</option>
+                              <option value={0}>0 (Loss)</option>
+                            </select>
+
+                            <span className="text-slate-500 font-bold">-</span>
+
+                            <select
+                              value={m.scoreB !== null ? m.scoreB : ''}
+                              onChange={(e) => {
+                                const valB = Number(e.target.value);
+                                const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
+                                updateMatchScore(gIdx, m.id, valA, valB);
+                              }}
+                              className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
+                            >
+                              <option value="" disabled>{m.playerB.name} Score</option>
+                              <option value={1}>1 (Win)</option>
+                              <option value={0.5}>0.5 (Draw)</option>
+                              <option value={0}>0 (Loss)</option>
+                            </select>
+                          </div>
+                        )}
                       </div>
 
-                      {m.isLocked && !isAdminUnlocked ? (
-                        <div className="flex items-center gap-3">
-                          <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">
-                            Result: {m.scoreA} - {m.scoreB}
-                          </span>
-                          <span className="text-[10px] text-slate-500">Locked 🔒</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <select
-                            value={m.scoreA !== null ? m.scoreA : ''}
-                            onChange={(e) => {
-                              const valA = Number(e.target.value);
-                              const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
-                              updateMatchScore(gIdx, m.id, valA, valB);
-                            }}
-                            className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
-                          >
-                            <option value="" disabled>{m.playerA.name} Score</option>
-                            <option value={1}>1 (Win)</option>
-                            <option value={0.5}>0.5 (Draw)</option>
-                            <option value={0}>0 (Loss)</option>
-                          </select>
-
-                          <span className="text-slate-500 font-bold">-</span>
-
-                          <select
-                            value={m.scoreB !== null ? m.scoreB : ''}
-                            onChange={(e) => {
-                              const valB = Number(e.target.value);
-                              const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
-                              updateMatchScore(gIdx, m.id, valA, valB);
-                            }}
-                            className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
-                          >
-                            <option value="" disabled>{m.playerB.name} Score</option>
-                            <option value={1}>1 (Win)</option>
-                            <option value={0.5}>0.5 (Draw)</option>
-                            <option value={0}>0 (Loss)</option>
-                          </select>
+                      {/* Inline Individual Schedule Editor for this match */}
+                      {editingMatchScheduleId === m.id && (
+                        <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3">
+                          <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">Configure Schedule for this Match</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <div>
+                              <label className="text-slate-400 text-[10px] block mb-1">Date:</label>
+                              <input
+                                type="date"
+                                value={tempScheduleDate}
+                                onChange={(e) => setTempScheduleDate(e.target.value)}
+                                className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-slate-400 text-[10px] block mb-1">Time Slot (e.g. 11 AM to 12 PM):</label>
+                              <input
+                                type="text"
+                                value={tempScheduleTime}
+                                onChange={(e) => setTempScheduleTime(e.target.value)}
+                                placeholder="11 AM to 12 PM"
+                                className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                              />
+                            </div>
+                            <div className="flex items-end">
+                              <button
+                                onClick={() => handleSaveIndividualSchedule(gIdx, m.id)}
+                                className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-1.5 rounded text-xs shadow"
+                              >
+                                Save Schedule
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                     </div>
