@@ -458,13 +458,24 @@ export default function SanviOlympicsPortal() {
               displayAge = rawAge ? `Age: ${rawAge}` : 'Age: N/A';
             }
 
+            const pid = p.id || p.regId || p.Registration_ID;
+            const playerSchedule = (pid && sportsData?.chess?.playerSchedules?.[pid]) || (pid && currentSportState?.playerSchedules?.[pid]);
+
             return (
-              <div key={p.id || p.regId || p.Registration_ID} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow transition">
+              <div key={pid} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow transition">
                 <div className="flex justify-between items-start">
                   <h4 className="font-bold text-slate-900 text-sm">{p.name}</h4>
                   <span className="text-[10px] bg-slate-100 text-amber-700 px-2 py-0.5 rounded border border-slate-200 font-semibold">ID: {p.regId || p.Registration_ID}</span>
                 </div>
                 <p className="text-xs text-amber-700 mt-1 font-medium">{p.flat || p.Flat} • {p.gameChoice || p.sport}</p>
+                
+                {playerSchedule && (
+                  <div className="mt-2.5 bg-amber-50 border border-amber-200 text-amber-900 px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
+                    <span>📅</span>
+                    <span>{playerSchedule.text || playerSchedule.scheduledText}</span>
+                  </div>
+                )}
+
                 <div className="mt-3 flex justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-2">
                   <span className="bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-amber-800 font-black">
                     {displayAge}
