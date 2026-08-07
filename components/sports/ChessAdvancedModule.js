@@ -227,7 +227,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for ${selectedCategory}! You can now click "✏️ Edit Schedule" on any individual match to customize its date and time.`);
+    alert(`Round 1 initialized for ${selectedCategory}! Click the schedule badge on any match to customize its date and time.`);
   };
 
   // Update a single specific match's schedule independently
@@ -517,7 +517,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           <div className="flex justify-between items-center">
             <div>
               <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">{selectedCategory} — {currentRound.roundName} Leaderboards & Groups</h4>
-              <p className="text-[11px] text-slate-400 mt-0.5">Click ✏️ Edit Schedule on any match below to set a custom date (e.g. 15Aug, 16Aug, 19Aug) and time slot.</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">Click directly on any schedule badge below to customize its date (e.g. 15Aug, 16Aug, 19Aug) and time slot.</p>
             </div>
             
             {!isGrandFinale ? (
@@ -571,7 +571,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                   </tbody>
                 </table>
 
-                {/* Grid Scorekeeping Matrix with Individual Match Schedule Override */}
+                {/* Grid Scorekeeping Matrix with Clickable Schedule Badge & Override */}
                 <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Match Score Grid & Schedule</span>
                   {grp.matches.map((m) => (
@@ -582,21 +582,20 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                             {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
                           </div>
                           
-                          {/* Schedule Badge with Edit Button */}
+                          {/* Clickable Schedule Badge */}
                           <div className="flex items-center gap-2 flex-wrap">
-                            <div className="inline-block bg-rose-950/50 border border-rose-500/60 px-2 py-0.5 rounded text-[10px] font-bold text-rose-300">
-                              Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})
-                            </div>
-                            <button
+                            <div 
                               onClick={() => {
                                 setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
                                 setTempScheduleDate('2026-08-15');
                                 setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
                               }}
-                              className="text-[10px] text-amber-400 hover:text-amber-300 font-bold bg-amber-500/10 hover:bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/20"
+                              className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
+                              title="Click to edit schedule"
                             >
-                              ✏️ {editingMatchScheduleId === m.id ? 'Cancel' : 'Edit Schedule'}
-                            </button>
+                              <span>📅 Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})</span>
+                              <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-black">✏️ Edit</span>
+                            </div>
                           </div>
                         </div>
 
@@ -646,11 +645,14 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
                       {/* Inline Individual Schedule Editor for this match */}
                       {editingMatchScheduleId === m.id && (
-                        <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3">
-                          <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">Configure Schedule for this Match</div>
+                        <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3 shadow-xl">
+                          <div className="flex justify-between items-center">
+                            <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">✏️ Custom Schedule Override for Match</div>
+                            <button onClick={() => setEditingMatchScheduleId(null)} className="text-slate-400 hover:text-white text-xs font-bold">✕ Close</button>
+                          </div>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                             <div>
-                              <label className="text-slate-400 text-[10px] block mb-1">Date:</label>
+                              <label className="text-slate-400 text-[10px] block mb-1">Select Date:</label>
                               <input
                                 type="date"
                                 value={tempScheduleDate}
