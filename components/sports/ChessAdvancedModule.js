@@ -27,13 +27,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
   // --------------------------------------------------------------------------
-  // AUTO-SCHEDULING ENGINE CONFIGURATION STATE
+  // AUTO-SCHEDULING ENGINE CONFIGURATION STATE (Variable matches per day)
   // --------------------------------------------------------------------------
   const [scheduleConfig, setScheduleConfig] = useState({
     startDate: '2026-08-15',
     startTime: '11:00',
-    allottedHours: 4,     // e.g., 11 AM to 3 PM
-    matchDuration: 1,      // 1 hour per match
+    matchesPerDay: 6,      // Variable number of matches allowed per specific date
+    matchDuration: 1,      // 1 hour per match slot
     parallelCapacity: 3,   // 3 parallel matches per slot
   });
   const [showScheduleConfig, setShowScheduleConfig] = useState(false);
@@ -53,17 +53,17 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return `${h} ${ampm}`.replace(' ', '');
   };
 
-  // Auto-Scheduling Logic: Calculates Date & Time slot for each match index
+  // Auto-Scheduling Logic: Calculates Date & Time slot based on configurable daily match quota
   const calculateMatchSchedule = (matchIndex, config = scheduleConfig) => {
     const startD = new Date(config.startDate || '2026-08-15');
     const startHour = parseInt((config.startTime || '11:00').split(':')[0], 10);
-    const slotsPerDay = Math.floor(config.allottedHours / config.matchDuration) || 1;
-    const totalCapacityPerDay = slotsPerDay * config.parallelCapacity;
+    const matchesPerDay = Number(config.matchesPerDay) || 6;
+    const parallelCapacity = Number(config.parallelCapacity) || 3;
+    const matchDuration = Number(config.matchDuration) || 1;
 
-    const dayOffset = Math.floor(matchIndex / totalCapacityPerDay);
-    const matchIndexWithinDay = matchIndex % totalCapacityPerDay;
-
-    const slotIndex = Math.floor(matchIndexWithinDay / config.parallelCapacity);
+    const dayOffset = Math.floor(matchIndex / matchesPerDay);
+    const matchIndexOnDay = matchIndex % matchesPerDay;
+    const slotIndex = Math.floor(matchIndexOnDay / parallelCapacity);
 
     // Compute actual date
     const currentDate = new Date(startD);
@@ -71,8 +71,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const dateStr = formatDateShort(currentDate);
 
     // Compute start and end times for this slot
-    const slotStartHour = startHour + (slotIndex * config.matchDuration);
-    const slotEndHour = slotStartHour + config.matchDuration;
+    const slotStartHour = startHour + (slotIndex * matchDuration);
+    const slotEndHour = slotStartHour + matchDuration;
 
     const startFormatted = formatHour12(slotStartHour);
     const endFormatted = formatHour12(slotEndHour);
@@ -491,8 +491,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       {showScheduleConfig && (
         <div className="bg-slate-950 p-4 rounded-2xl border border-amber-500/30 text-xs space-y-4 shadow-2xl">
           <div className="flex justify-between items-center border-b border-slate-800 pb-2">
-            <h4 className="font-black text-amber-400 uppercase tracking-wider">📅 Auto-Scheduling & Time-Slot Configuration</h4>
-            <span className="text-slate-400 text-[10px]">Applies date/time slots to matches & participant tiles</span>
+            <h4 className="font-black text-amber-400 uppercase tracking-wider">📅 Auto-Scheduling & Variable Date Quota Configuration</h4>
+            <span className="text-slate-400 text-[10px]">Controls matches per date, time slots, & participant tiles</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
@@ -517,17 +517,17 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             </div>
 
             <div>
-              <label className="text-slate-400 font-bold block mb-1">Daily Hours Window:</label>
+              <label className="text-slate-400 font-bold block mb-1">Matches Per Date:</label>
               <select
-                value={scheduleConfig.allottedHours}
-                onChange={(e) => setScheduleConfig({ ...scheduleConfig, allottedHours: Number(e.target.value) })}
+                value={scheduleConfig.matchesPerDay}
+                onChange={(e) => setScheduleConfig({ ...scheduleConfig, matchesPerDay: Number(e.target.value) })}
                 className="w-full bg-slate-900 text-amber-300 font-bold p-2 rounded-lg border border-slate-800 outline-none"
               >
-                <option value={2}>2 Hours</option>
-                <option value={3}>3 Hours</option>
-                <option value={4}>4 Hours (e.g. 11 AM - 3 PM)</option>
-                <option value={6}>6 Hours</option>
-                <option value={8}>8 Hours</option>
+                <option value={2}>2 Matches / day</option>
+                <option value={4}>4 Matches / day</option>
+                <option value={6}>6 Matches / day</option>
+                <option value={8}>8 Matches / day</option>
+                <option value={12}>12 Matches / day</option>
               </select>
             </div>
 
@@ -566,7 +566,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                 onClick={handleRescheduleActiveRound}
                 className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-4 py-2 rounded-xl text-xs shadow"
               >
-                🔄 Apply Schedule Settings to Active Round Matches
+                🔄 Apply Schedule Quota to Active Round Matches
               </button>
             </div>
           )}
