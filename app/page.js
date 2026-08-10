@@ -26,6 +26,23 @@ const SPORTS_LIST = [
   { id: 'quiz', name: 'Quiz', type: 'AUCTION_TEAM' },
 ];
 
+// Helper to guarantee at least 12 sponsor slots are always present
+const normalizeSponsors = (incomingSponsors = []) => {
+  const list = Array.isArray(incomingSponsors) ? [...incomingSponsors] : [];
+  if (list.length >= 12) return list;
+
+  for (let i = list.length; i < 12; i++) {
+    list.push({
+      id: String(i + 1),
+      title: `Sponsor ${i + 1}`,
+      image: null,
+      text: '',
+      effect: 'none',
+    });
+  }
+  return list;
+};
+
 export default function SanviOlympicsPortal() {
   const [activeSport, setActiveSport] = useState(SPORTS_LIST[1]); // Default to Football
   const [activeSubTab, setActiveSubTab] = useState('participants');
@@ -43,21 +60,8 @@ export default function SanviOlympicsPortal() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminModuleState, setAdminModuleState] = useState({ admins: [], isAdmin: false });
 
-  // 12 Placeholders for Official Event Sponsors & Partners (3 Rows x 4 Columns)
-  const [sponsors, setSponsors] = useState([
-    { id: '1', title: 'Sponsor 1', image: null, text: '', effect: 'none' },
-    { id: '2', title: 'Sponsor 2', image: null, text: '', effect: 'none' },
-    { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
-    { id: '4', title: 'Sponsor 4', image: null, text: '', effect: 'none' },
-    { id: '5', title: 'Sponsor 5', image: null, text: '', effect: 'none' },
-    { id: '6', title: 'Sponsor 6', image: null, text: '', effect: 'none' },
-    { id: '7', title: 'Sponsor 7', image: null, text: '', effect: 'none' },
-    { id: '8', title: 'Sponsor 8', image: null, text: '', effect: 'none' },
-    { id: '9', title: 'Sponsor 9', image: null, text: '', effect: 'none' },
-    { id: '10', title: 'Sponsor 10', image: null, text: '', effect: 'none' },
-    { id: '11', title: 'Sponsor 11', image: null, text: '', effect: 'none' },
-    { id: '12', title: 'Sponsor 12', image: null, text: '', effect: 'none' },
-  ]);
+  // 12 Default Placeholders for Official Event Sponsors & Partners
+  const [sponsors, setSponsors] = useState(() => normalizeSponsors([]));
 
   // Fetch central database data on load
   useEffect(() => {
@@ -72,7 +76,10 @@ export default function SanviOlympicsPortal() {
             setParticipants(getInitialParticipants());
           }
           if (json.sportsData) setSportsData(json.sportsData);
-          if (json.sponsors && json.sponsors.length > 0) setSponsors(json.sponsors);
+          if (json.sponsors) {
+            // Always normalize incoming sponsors from the API database to 12 slots
+            setSponsors(normalizeSponsors(json.sponsors));
+          }
         }
       } catch (e) {
         console.error('Failed to load central data, falling back to defaults', e);
@@ -106,7 +113,7 @@ export default function SanviOlympicsPortal() {
           body: JSON.stringify({
             participants: updatedParticipants,
             sportsData: updatedSportsData,
-            sponsors: updatedSponsors,
+            sponsors: normalizeSponsors(updatedSponsors),
           }),
         });
         if (!res.ok) {
@@ -241,7 +248,10 @@ export default function SanviOlympicsPortal() {
           const backup = JSON.parse(event.target.result);
           if (backup.participants) setParticipants(backup.participants);
           if (backup.sportsData) setSportsData(backup.sportsData);
-          if (backup.sponsors) setSponsors(backup.sponsors);
+          if (backup.sponsors) {
+            const normalized = normalizeSponsors(backup.sponsors);
+            setSponsors(normalized);
+          }
           saveToCentralServer(backup.participants || participants, backup.sportsData || sportsData, backup.sponsors || sponsors);
           alert('Database restored successfully!');
         } catch (err) {
@@ -346,7 +356,7 @@ export default function SanviOlympicsPortal() {
         />
       )}
 
-      {/* Official Event Sponsors Banner — 12 Placeholders (3 Rows x 4 Columns Square Grid) */}
+      {/* Official Event Sponsors Banner — 12 Placeholders (3 Rows x 4 Columns Grid) */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
