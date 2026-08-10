@@ -43,11 +43,18 @@ export default function SanviOlympicsPortal() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminModuleState, setAdminModuleState] = useState({ admins: [], isAdmin: false });
 
-  // Sponsors State
+  // 10 Placeholders for Official Event Sponsors & Partners
   const [sponsors, setSponsors] = useState([
     { id: '1', title: 'Sponsor 1', image: null, text: '', effect: 'none' },
     { id: '2', title: 'Sponsor 2', image: null, text: '', effect: 'none' },
     { id: '3', title: 'Sponsor 3', image: null, text: '', effect: 'none' },
+    { id: '4', title: 'Sponsor 4', image: null, text: '', effect: 'none' },
+    { id: '5', title: 'Sponsor 5', image: null, text: '', effect: 'none' },
+    { id: '6', title: 'Sponsor 6', image: null, text: '', effect: 'none' },
+    { id: '7', title: 'Sponsor 7', image: null, text: '', effect: 'none' },
+    { id: '8', title: 'Sponsor 8', image: null, text: '', effect: 'none' },
+    { id: '9', title: 'Sponsor 9', image: null, text: '', effect: 'none' },
+    { id: '10', title: 'Sponsor 10', image: null, text: '', effect: 'none' },
   ]);
 
   // Fetch central database data on load
@@ -337,7 +344,7 @@ export default function SanviOlympicsPortal() {
         />
       )}
 
-      {/* Official Event Sponsors Banner */}
+      {/* Official Event Sponsors Banner — 10 Placeholders in 3 Rows x 4 Columns Square Grid */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
@@ -348,18 +355,18 @@ export default function SanviOlympicsPortal() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {sponsors.map((sponsor) => (
-            <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden min-h-32 flex flex-col justify-between relative shadow-sm p-2">
-              <div className="w-full flex-1 flex items-center justify-center overflow-hidden my-auto min-h-[80px]">
+            <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between relative shadow-sm p-3 hover:shadow-md transition">
+              <div className="w-full aspect-square flex items-center justify-center overflow-hidden my-auto bg-slate-50 rounded-lg border border-slate-100 p-2">
                 {sponsor.image ? (
-                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-auto max-h-24 object-contain" />
+                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain rounded-md" />
                 ) : (
                   <span className="text-xs text-slate-400 font-bold">{sponsor.title}</span>
                 )}
               </div>
               {sponsor.text && (
-                <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100 mt-1">
+                <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100 mt-2">
                   <marquee className="text-[11px] font-bold text-amber-700">{sponsor.text}</marquee>
                 </div>
               )}
@@ -511,20 +518,20 @@ export default function SanviOlympicsPortal() {
       {/* Sponsor Configuration Modal */}
       {isAdminMode && isConfiguringSponsors && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
+          <div className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900">🌟 Sponsor Configuration Hub</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Upload images, marquee text, and animation effects.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Upload square images, marquee text, and animation effects for all 10 placeholders.</p>
               </div>
               <button onClick={() => setIsConfiguringSponsors(false)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition">
                 ✕ Close
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {sponsors.map((sponsor, index) => (
-                <div key={sponsor.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+                <div key={sponsor.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3 shadow-sm">
                   <div className="flex justify-between items-center">
                     <h4 className="text-xs font-black text-amber-700 uppercase">{sponsor.title}</h4>
                     {sponsor.image && (
@@ -536,20 +543,20 @@ export default function SanviOlympicsPortal() {
                         }}
                         className="text-[10px] text-red-600 hover:underline font-bold"
                       >
-                        Remove Image
+                        Remove
                       </button>
                     )}
                   </div>
 
-                  <div className="w-full h-28 bg-white border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center relative shadow-inner p-2">
+                  <div className="w-full aspect-square bg-white border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center relative shadow-inner p-1">
                     {sponsor.image ? (
-                      <img src={sponsor.image} alt={sponsor.title} className="w-full h-auto max-h-24 object-contain" />
+                      <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain rounded" />
                     ) : (
                       <span className="text-xs text-slate-400 font-medium">No Image Set</span>
                     )}
                   </div>
 
-                  <div className="space-y-1.5">
+                  <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-slate-600">Browse Image / GIF</label>
                     <input
                       type="file"
@@ -566,7 +573,7 @@ export default function SanviOlympicsPortal() {
                           reader.readAsDataURL(file);
                         }
                       }}
-                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1.5 file:px-2.5 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
+                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
                     />
                   </div>
 
