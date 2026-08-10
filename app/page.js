@@ -43,7 +43,7 @@ export default function SanviOlympicsPortal() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminModuleState, setAdminModuleState] = useState({ admins: [], isAdmin: false });
 
-  // 10 Placeholders for Official Event Sponsors & Partners
+  // 12 Placeholders for Official Event Sponsors & Partners (3 Rows x 4 Columns)
   const [sponsors, setSponsors] = useState([
     { id: '1', title: 'Sponsor 1', image: null, text: '', effect: 'none' },
     { id: '2', title: 'Sponsor 2', image: null, text: '', effect: 'none' },
@@ -55,6 +55,8 @@ export default function SanviOlympicsPortal() {
     { id: '8', title: 'Sponsor 8', image: null, text: '', effect: 'none' },
     { id: '9', title: 'Sponsor 9', image: null, text: '', effect: 'none' },
     { id: '10', title: 'Sponsor 10', image: null, text: '', effect: 'none' },
+    { id: '11', title: 'Sponsor 11', image: null, text: '', effect: 'none' },
+    { id: '12', title: 'Sponsor 12', image: null, text: '', effect: 'none' },
   ]);
 
   // Fetch central database data on load
@@ -344,7 +346,7 @@ export default function SanviOlympicsPortal() {
         />
       )}
 
-      {/* Official Event Sponsors Banner — 10 Placeholders in 3 Rows x 4 Columns Square Grid */}
+      {/* Official Event Sponsors Banner — 12 Placeholders (3 Rows x 4 Columns Square Grid) */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
@@ -355,14 +357,14 @@ export default function SanviOlympicsPortal() {
           )}
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {sponsors.map((sponsor) => (
             <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between relative shadow-sm p-3 hover:shadow-md transition">
-              <div className="w-full aspect-square flex items-center justify-center overflow-hidden my-auto bg-slate-50 rounded-lg border border-slate-100 p-2">
+              <div className="w-full aspect-square flex items-center justify-center overflow-hidden bg-slate-50 rounded-lg border border-slate-100 p-2 my-auto">
                 {sponsor.image ? (
                   <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain rounded-md" />
                 ) : (
-                  <span className="text-xs text-slate-400 font-bold">{sponsor.title}</span>
+                  <span className="text-xs text-slate-400 font-bold text-center">{sponsor.title}</span>
                 )}
               </div>
               {sponsor.text && (
@@ -522,14 +524,14 @@ export default function SanviOlympicsPortal() {
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900">🌟 Sponsor Configuration Hub</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Upload square images, marquee text, and animation effects for all 10 placeholders.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Upload square images, marquee text, and animation effects for all 12 placeholders.</p>
               </div>
               <button onClick={() => setIsConfiguringSponsors(false)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition">
                 ✕ Close
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
               {sponsors.map((sponsor, index) => (
                 <div key={sponsor.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3 shadow-sm">
                   <div className="flex justify-between items-center">
