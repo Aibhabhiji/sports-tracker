@@ -3,17 +3,21 @@
 import React, { useState } from 'react';
 
 export default function ChessAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
-  // Standard categories + dynamic categories extracted from participants
-  const defaultCategories = ['Open', 'Under 12 Kids', '12 - 17 years Teens', '18 - 55 years Adults', '55+ years Seniors', 'Kids', 'Male', 'Female', 'Under 16', 'Veterans'];
-  const dynamicCategories = Array.from(new Set(
-    (participants || []).flatMap(p => [
-      p.category, p.Category, p.ageGroup, p.AgeGroup, p.gender, p.Gender
-    ].filter(Boolean))
-  ));
-  const categories = Array.from(new Set([...(sportState?.categories || []), ...defaultCategories, ...dynamicCategories]));
+  // Strict, cleaned list of allowed categories
+  const categories = [
+    'Open',
+    'Under 8 Years Kids',
+    'Under 12 Years Kids',
+    '12 - 17 Years Teens',
+    '18 - 55 Years Adults Phase 1 Male',
+    '18 - 55 Years Adults Phase 2 Male',
+    '18 - 55 Years Adults Phase 1 Female',
+    '18 - 55 Years Adults Phase 2 Female',
+    'Senior Citizens 55+ years'
+  ];
 
   const [selectedCategory, setSelectedCategory] = useState('Open');
-  const [chessTab, setChessTab] = useState('participants'); // Default to participants view so schedules are immediately visible!
+  const [chessTab, setChessTab] = useState('participants'); // Default to participants view so schedules are visible
   
   // Per-category rounds and round indices stored in sportState.categoryRounds
   const categoryRoundsMap = sportState?.categoryRounds || {};
@@ -27,7 +31,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
 
-  // Track which specific match schedule is currently being edited
+  // Track match schedule editing
   const [editingMatchScheduleId, setEditingMatchScheduleId] = useState(null);
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
@@ -118,7 +122,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return schedulesMap;
   };
 
-  // Filter participants for current category
+  // Filter participants specifically for selected category
   const rawFiltered = (participants || []).filter(p => {
     if (!selectedCategory || selectedCategory === 'Open' || selectedCategory === 'All') return true;
 
@@ -126,30 +130,46 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const pCat = (p.category || p.Category || '').toString().toLowerCase();
     const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
     const pGender = (p.gender || p.Gender || '').toString().toLowerCase();
+    const pPhase = (p.phase || p.Phase || '').toString().toLowerCase();
     const pAge = (p.age || p.Age || '').toString();
+    const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
 
-    if (pCat === catStr || pAgeGroup === catStr || pGender === catStr) return true;
-    if (catStr.includes('under 12') || catStr.includes('kids')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '99', 10);
-      return num < 12 || pCat.includes('kid') || pAgeGroup.includes('kid');
+    if (pCat === catStr || pAgeGroup === catStr) return true;
+
+    if (catStr.includes('under 8')) {
+      return (numAge > 0 && numAge < 8) || pCat.includes('under 8') || pAgeGroup.includes('under 8');
     }
-    if (catStr.includes('12 - 17') || catStr.includes('teens') || catStr.includes('under 16')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '99', 10);
-      return (num >= 12 && num <= 17) || num < 16 || pCat.includes('teen') || pAgeGroup.includes('teen');
+    if (catStr.includes('under 12')) {
+      return (numAge >= 8 && numAge < 12) || pCat.includes('under 12') || pAgeGroup.includes('under 12');
+    }
+    if (catStr.includes('12 - 17') || catStr.includes('teens')) {
+      return (numAge >= 12 && numAge <= 17) || pCat.includes('teen') || pAgeGroup.includes('teen');
     }
     if (catStr.includes('18 - 55') || catStr.includes('adults')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
-      return (num >= 18 && num <= 55) || pCat.includes('adult') || pAgeGroup.includes('adult');
+      const matchAgeRange = (numAge >= 18 && numAge <= 55) || pCat.includes('adult') || pAgeGroup.includes('adult') || numAge === 0;
+      const isPhase1 = catStr.includes('phase 1');
+      const isPhase2 = catStr.includes('phase 2');
+      const isMale = catStr.includes('male') && !catStr.includes('female');
+      const isFemale = catStr.includes('female');
+
+      let matchPhase = true;
+      if (isPhase1) matchPhase = pPhase.includes('1') || pPhase.includes('phase 1') || pCat.includes('phase 1') || !pPhase;
+      if (isPhase2) matchPhase = pPhase.includes('2') || pPhase.includes('phase 2') || pCat.includes('phase 2');
+
+      let matchGender = true;
+      if (isMale) matchGender = pGender.includes('male') || pGender === 'm' || pCat.includes('male');
+      if (isFemale) matchGender = pGender.includes('female') || pGender === 'f' || pCat.includes('female');
+
+      return matchAgeRange && matchPhase && matchGender;
     }
-    if (catStr.includes('55+') || catStr.includes('seniors') || catStr.includes('veterans')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
-      return num >= 55 || pCat.includes('senior') || pCat.includes('veteran');
+    if (catStr.includes('55+') || catStr.includes('senior')) {
+      return numAge >= 55 || pCat.includes('senior') || pCat.includes('veteran');
     }
 
     return pCat.includes(catStr) || pAgeGroup.includes(catStr);
   });
 
-  // Strict deduplication by ID and normalized Name
+  // Deduplication by ID and normalized Name
   const seenIds = new Set();
   const seenNames = new Set();
   const filteredParticipants = rawFiltered.filter(p => {
@@ -163,7 +183,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return true;
   });
 
-  // Helper to fetch participant schedule (with automatic preview fallback if Round 1 hasn't started yet)
+  // Helper to fetch participant schedule
   const getParticipantSchedule = (p, idx = 0) => {
     const pid = p.id || p.regId || p.Registration_ID;
     const normName = p.name?.trim().toLowerCase();
@@ -189,7 +209,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       }
     }
 
-    // Fallback preview schedule so every player tile immediately shows their assigned slot
     const previewSched = calculateInitialMatchSchedule(idx);
     return {
       text: previewSched.fullScheduleText,
@@ -223,8 +242,11 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     let groupCharCode = 65;
     let globalMatchCounter = 0;
 
-    for (let i = 0; i < shuffled.length; i += groupSize) {
-      const groupPlayers = shuffled.slice(i, i + groupSize);
+    // Rule: If category has 5 or fewer players, create ONLY 1 single group
+    const effectiveGroupSize = shuffled.length <= 5 ? shuffled.length : groupSize;
+
+    for (let i = 0; i < shuffled.length; i += effectiveGroupSize) {
+      const groupPlayers = shuffled.slice(i, i + effectiveGroupSize);
       const groupName = `Group ${String.fromCharCode(groupCharCode++)}`;
       
       const standings = groupPlayers.map(p => ({
@@ -264,7 +286,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for ${selectedCategory}! All player schedules are now locked and active.`);
+    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed)`);
   };
 
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
@@ -380,7 +402,11 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     let qualifiedPlayers = [];
     currentRound.groups.forEach(grp => {
       const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-      const topN = sorted.slice(0, advancementCount);
+      
+      // Rule: If group has less than 4 persons, ONLY 1 winner advances.
+      // Otherwise (>= 4 players), advance advancementCount (Top 2 / Top 3).
+      const effectiveAdvancement = grp.standings.length < 4 ? 1 : advancementCount;
+      const topN = sorted.slice(0, effectiveAdvancement);
       qualifiedPlayers.push(...topN);
     });
 
@@ -407,12 +433,12 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const shuffled = [...uniqueQualified].sort(() => 0.5 - Math.random());
     const nextGroups = [];
     let groupCharCode = 65;
-    const currentGroupSize = uniqueQualified.length <= 4 ? uniqueQualified.length : groupSize;
+    const currentGroupSize = uniqueQualified.length <= 5 ? uniqueQualified.length : groupSize;
     let globalMatchCounter = 0;
 
     for (let i = 0; i < shuffled.length; i += currentGroupSize) {
       const groupPlayers = shuffled.slice(i, i + currentGroupSize);
-      const groupName = uniqueQualified.length <= 4 ? nextRoundName : `Group ${String.fromCharCode(groupCharCode++)}`;
+      const groupName = uniqueQualified.length <= 5 ? nextRoundName : `Group ${String.fromCharCode(groupCharCode++)}`;
       
       const standings = groupPlayers.map(p => ({
         id: p.id,
@@ -481,7 +507,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
-          <p className="text-xs text-slate-400">Independent category tournaments, player exclusivity mutex, zero-duplication grouping, multi-round progression & participant schedule tiles.</p>
+          <p className="text-xs text-slate-400">Independent category tournaments, single group rules for 5 players, round progression & participant schedule tiles.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -631,7 +657,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                 
                 {!isGrandFinale ? (
                   <button onClick={handleAdvanceToNextRound} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs shadow">
-                    ⚡ Regroup & Advance Top {advancementCount} to Next Round
+                    ⚡ Regroup & Advance Qualified Players to Next Round
                   </button>
                 ) : (
                   <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-xl font-black border border-amber-500/20">
@@ -641,160 +667,165 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {currentRound.groups.map((grp, gIdx) => (
-                  <div key={grp.groupName} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-                    <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                      <h5 className="font-black text-amber-400 text-xs">{grp.groupName}</h5>
-                      <span className="text-[10px] text-slate-400">Leaderboard & Standings</span>
-                    </div>
+                {currentRound.groups.map((grp, gIdx) => {
+                  const effectiveAdv = grp.standings.length < 4 ? 1 : advancementCount;
 
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-800 text-slate-400">
-                          <th className="pb-2">Rank & Player</th>
-                          <th className="pb-2">Flat</th>
-                          <th className="pb-2">P</th>
-                          <th className="pb-2">W</th>
-                          <th className="pb-2">D</th>
-                          <th className="pb-2">L</th>
-                          <th className="pb-2 text-amber-400 font-black">Pts</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {grp.standings.sort((a, b) => b.points - a.points || b.won - a.won).map((s, rank) => (
-                          <tr key={s.id} className={rank < advancementCount ? 'bg-emerald-950/20' : ''}>
-                            <td className="py-2.5 font-bold text-slate-100 flex items-center gap-2">
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${rank < advancementCount ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
-                                {rank + 1}
-                              </span>
-                              {s.name}
-                            </td>
-                            <td className="py-2.5 text-slate-400">{s.flat}</td>
-                            <td className="py-2.5 text-slate-300">{s.played}</td>
-                            <td className="py-2.5 text-emerald-400">{s.won}</td>
-                            <td className="py-2.5 text-yellow-400">{s.drawn}</td>
-                            <td className="py-2.5 text-rose-400">{s.lost}</td>
-                            <td className="py-2.5 font-black text-amber-300">{s.points}</td>
+                  return (
+                    <div key={grp.groupName} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Players)</h5>
+                        <span className="text-[10px] text-slate-400">
+                          {grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`}
+                        </span>
+                      </div>
+
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400">
+                            <th className="pb-2">Rank & Player</th>
+                            <th className="pb-2">Flat</th>
+                            <th className="pb-2">P</th>
+                            <th className="pb-2">W</th>
+                            <th className="pb-2">D</th>
+                            <th className="pb-2">L</th>
+                            <th className="pb-2 text-amber-400 font-black">Pts</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {grp.standings.sort((a, b) => b.points - a.points || b.won - a.won).map((s, rank) => (
+                            <tr key={s.id} className={rank < effectiveAdv ? 'bg-emerald-950/20' : ''}>
+                              <td className="py-2.5 font-bold text-slate-100 flex items-center gap-2">
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${rank < effectiveAdv ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                                  {rank + 1}
+                                </span>
+                                {s.name}
+                              </td>
+                              <td className="py-2.5 text-slate-400">{s.flat}</td>
+                              <td className="py-2.5 text-slate-300">{s.played}</td>
+                              <td className="py-2.5 text-emerald-400">{s.won}</td>
+                              <td className="py-2.5 text-yellow-400">{s.drawn}</td>
+                              <td className="py-2.5 text-rose-400">{s.lost}</td>
+                              <td className="py-2.5 font-black text-amber-300">{s.points}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
 
-                    {/* Grid Scorekeeping Matrix with Clickable Schedule Badge & Override */}
-                    <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Match Score Grid & Schedule</span>
-                      {grp.matches.map((m) => (
-                        <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                            <div className="space-y-1">
-                              <div className="text-xs font-bold text-slate-200">
-                                {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
-                              </div>
-                              
-                              {/* Clickable Schedule Badge */}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <div 
-                                  onClick={() => {
-                                    setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
-                                    setTempScheduleDate('2026-08-15');
-                                    setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
-                                  }}
-                                  className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
-                                  title="Click to edit schedule"
-                                >
-                                  <span>📅 Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})</span>
-                                  <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-black">✏️ Edit</span>
+                      {/* Match Score Matrix */}
+                      <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Match Score Grid & Schedule</span>
+                        {grp.matches.map((m) => (
+                          <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                              <div className="space-y-1">
+                                <div className="text-xs font-bold text-slate-200">
+                                  {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
+                                </div>
+                                
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div 
+                                    onClick={() => {
+                                      setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
+                                      setTempScheduleDate('2026-08-15');
+                                      setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
+                                    }}
+                                    className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
+                                    title="Click to edit schedule"
+                                  >
+                                    <span>📅 Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})</span>
+                                    <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-black">✏️ Edit</span>
+                                  </div>
                                 </div>
                               </div>
+
+                              {m.isLocked && !isAdminUnlocked ? (
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">
+                                    Result: {m.scoreA} - {m.scoreB}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500">Locked 🔒</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={m.scoreA !== null ? m.scoreA : ''}
+                                    onChange={(e) => {
+                                      const valA = Number(e.target.value);
+                                      const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
+                                      updateMatchScore(gIdx, m.id, valA, valB);
+                                    }}
+                                    className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
+                                  >
+                                    <option value="" disabled>{m.playerA.name} Score</option>
+                                    <option value={1}>1 (Win)</option>
+                                    <option value={0.5}>0.5 (Draw)</option>
+                                    <option value={0}>0 (Loss)</option>
+                                  </select>
+
+                                  <span className="text-slate-500 font-bold">-</span>
+
+                                  <select
+                                    value={m.scoreB !== null ? m.scoreB : ''}
+                                    onChange={(e) => {
+                                      const valB = Number(e.target.value);
+                                      const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
+                                      updateMatchScore(gIdx, m.id, valA, valB);
+                                    }}
+                                    className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
+                                  >
+                                    <option value="" disabled>{m.playerB.name} Score</option>
+                                    <option value={1}>1 (Win)</option>
+                                    <option value={0.5}>0.5 (Draw)</option>
+                                    <option value={0}>0 (Loss)</option>
+                                  </select>
+                                </div>
+                              )}
                             </div>
 
-                            {m.isLocked && !isAdminUnlocked ? (
-                              <div className="flex items-center gap-3">
-                                <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">
-                                  Result: {m.scoreA} - {m.scoreB}
-                                </span>
-                                <span className="text-[10px] text-slate-500">Locked 🔒</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={m.scoreA !== null ? m.scoreA : ''}
-                                  onChange={(e) => {
-                                    const valA = Number(e.target.value);
-                                    const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
-                                    updateMatchScore(gIdx, m.id, valA, valB);
-                                  }}
-                                  className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
-                                >
-                                  <option value="" disabled>{m.playerA.name} Score</option>
-                                  <option value={1}>1 (Win)</option>
-                                  <option value={0.5}>0.5 (Draw)</option>
-                                  <option value={0}>0 (Loss)</option>
-                                </select>
-
-                                <span className="text-slate-500 font-bold">-</span>
-
-                                <select
-                                  value={m.scoreB !== null ? m.scoreB : ''}
-                                  onChange={(e) => {
-                                    const valB = Number(e.target.value);
-                                    const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
-                                    updateMatchScore(gIdx, m.id, valA, valB);
-                                  }}
-                                  className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
-                                >
-                                  <option value="" disabled>{m.playerB.name} Score</option>
-                                  <option value={1}>1 (Win)</option>
-                                  <option value={0.5}>0.5 (Draw)</option>
-                                  <option value={0}>0 (Loss)</option>
-                                </select>
+                            {/* Inline Individual Schedule Editor */}
+                            {editingMatchScheduleId === m.id && (
+                              <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3 shadow-xl">
+                                <div className="flex justify-between items-center">
+                                  <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">✏️ Custom Schedule Override for Match</div>
+                                  <button onClick={() => setEditingMatchScheduleId(null)} className="text-slate-400 hover:text-white text-xs font-bold">✕ Close</button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="text-slate-400 text-[10px] block mb-1">Select Date:</label>
+                                    <input
+                                      type="date"
+                                      value={tempScheduleDate}
+                                      onChange={(e) => setTempScheduleDate(e.target.value)}
+                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 text-[10px] block mb-1">Time Slot (e.g. 11 AM to 12 PM):</label>
+                                    <input
+                                      type="text"
+                                      value={tempScheduleTime}
+                                      onChange={(e) => setTempScheduleTime(e.target.value)}
+                                      placeholder="11 AM to 12 PM"
+                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                                    />
+                                  </div>
+                                  <div className="flex items-end">
+                                    <button
+                                      onClick={() => handleSaveIndividualSchedule(gIdx, m.id)}
+                                      className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-1.5 rounded text-xs shadow"
+                                    >
+                                      Save Schedule
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
-
-                          {/* Inline Individual Schedule Editor for this match */}
-                          {editingMatchScheduleId === m.id && (
-                            <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3 shadow-xl">
-                              <div className="flex justify-between items-center">
-                                <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">✏️ Custom Schedule Override for Match</div>
-                                <button onClick={() => setEditingMatchScheduleId(null)} className="text-slate-400 hover:text-white text-xs font-bold">✕ Close</button>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <div>
-                                  <label className="text-slate-400 text-[10px] block mb-1">Select Date:</label>
-                                  <input
-                                    type="date"
-                                    value={tempScheduleDate}
-                                    onChange={(e) => setTempScheduleDate(e.target.value)}
-                                    className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-slate-400 text-[10px] block mb-1">Time Slot (e.g. 11 AM to 12 PM):</label>
-                                  <input
-                                    type="text"
-                                    value={tempScheduleTime}
-                                    onChange={(e) => setTempScheduleTime(e.target.value)}
-                                    placeholder="11 AM to 12 PM"
-                                    className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
-                                  />
-                                </div>
-                                <div className="flex items-end">
-                                  <button
-                                    onClick={() => handleSaveIndividualSchedule(gIdx, m.id)}
-                                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-1.5 rounded text-xs shadow"
-                                  >
-                                    Save Schedule
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* GRAND FINALE WINNER CELEBRATION BOX */}
                 {isGrandFinale && (
