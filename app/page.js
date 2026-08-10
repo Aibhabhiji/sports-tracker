@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { getInitialParticipants, parseCSVParticipants } from '@/lib/participantStore';
 import TeamAuctionModule from '@/components/sports/TeamAuctionModule';
-import ChessCarromModule from '@/components/sports/ChessCarromModule';
+import CarromAdvancedModule from '@/components/sports/CarromAdvancedModule';
 import ChessAdvancedModule from '@/components/sports/ChessAdvancedModule';
-//import RaceModule from '@/components/sports/RaceModule';
 import MarathonModule from '@/components/sports/MarathonModule';
 import CricketModule from '@/components/sports/CricketModule';
 import FootballModule from '@/components/sports/FootballModule';
@@ -20,9 +19,8 @@ const SPORTS_LIST = [
   { id: 'table_tennis', name: 'Table Tennis', type: 'TABLE_TENNIS_CUSTOM' },
   { id: 'tug_of_war', name: 'Tug of War', type: 'AUCTION_TEAM' },
   { id: 'chess', name: 'Chess', type: 'ADVANCED_CHESS' },
-  { id: 'carrom', name: 'Carrom', type: 'ROUND_ROBIN' },
+  { id: 'carrom', name: 'Carrom', type: 'ADVANCED_CARROM' },
   { id: 'marathon', name: 'Marathon', type: 'MARATHON' },
-  //{ id: 'running', name: 'Running', type: 'RACE' },
   { id: 'walking', name: 'Walking', type: 'RACE' },
   { id: 'swimming', name: 'Swimming', type: 'RACE' },
   { id: 'quiz', name: 'Quiz', type: 'AUCTION_TEAM' },
@@ -136,7 +134,6 @@ export default function SanviOlympicsPortal() {
     const pSport = (p.gameChoice || p.sport || p.Sport || '').toString().trim().toLowerCase();
     const pId = (p.id || p.regId || p.Registration_ID || '').toString().trim();
 
-    // Composite identity key to detect duplicate registrations
     const compositeKey = (pName && pFlat) ? `${pName}_${pFlat}_${pSport}` : null;
 
     if ((pId && seenKeys.has(`id:${pId}`)) || (compositeKey && seenKeys.has(`comp:${compositeKey}`))) {
@@ -145,7 +142,6 @@ export default function SanviOlympicsPortal() {
 
     const matchGame = !filterByGameChoice || pSport === activeSport.name.trim().toLowerCase();
 
-    // 1. Flexible Phase Filter Matching
     const rawPhase = (p.phase || p.Phase || p['Phase'] || p['phase'] || '').toString().trim();
     const matchPhase = (() => {
       if (selectedPhase === 'All Phases') return true;
@@ -159,11 +155,9 @@ export default function SanviOlympicsPortal() {
       return normRaw.includes(normSel) || normSel.includes(normRaw);
     })();
 
-    // 2. Flexible Category Filter Matching
     const rawCat = (p.category || p.Category || '').toString().trim().toLowerCase();
     const matchCat = selectedCategory === 'All Categories' || rawCat === selectedCategory.toLowerCase();
 
-    // 3. Robust Age Group Filter Matching (Calculates ranges & parses text)
     const rawAgeVal = p.age ?? p.Age ?? p.ageGroup ?? p.AgeGroup ?? p['Age Group'] ?? p['Age'] ?? '';
     const rawAgeStr = rawAgeVal.toString().trim().toLowerCase();
 
@@ -171,10 +165,8 @@ export default function SanviOlympicsPortal() {
       if (selectedAgeGroup === 'All Age Groups') return true;
       if (!rawAgeStr) return false;
 
-      // Direct string match fallback
       if (rawAgeStr === selectedAgeGroup.trim().toLowerCase()) return true;
 
-      // Numeric extraction & age range evaluation
       const ageNumMatch = rawAgeStr.match(/\d+/);
       if (ageNumMatch) {
         const num = parseInt(ageNumMatch[0], 10);
@@ -184,7 +176,6 @@ export default function SanviOlympicsPortal() {
         if (selectedAgeGroup === '55+ years Seniors') return num >= 55;
       }
 
-      // Keyword fallback
       if (selectedAgeGroup === 'Under 12 Kids') return rawAgeStr.includes('kids') || rawAgeStr.includes('under 12');
       if (selectedAgeGroup === '12 - 17 years Teens') return rawAgeStr.includes('teen');
       if (selectedAgeGroup === '18 - 55 years Adults') return rawAgeStr.includes('adult');
@@ -319,7 +310,7 @@ export default function SanviOlympicsPortal() {
             </button>
           </div>
         )}
-        {/* Social Media Connect Icons */}
+
         <div className="flex items-center gap-3 md:ml-auto">
           <span className="text-[10px] font-bold text-slate-400">Connect:</span>
           <div className="flex items-center gap-2">
@@ -505,8 +496,8 @@ export default function SanviOlympicsPortal() {
           {activeSport.type === 'ADVANCED_CHESS' && (
             <ChessAdvancedModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
           )}
-          {activeSport.type === 'ROUND_ROBIN' && (
-            <ChessCarromModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+          {activeSport.type === 'ADVANCED_CARROM' && (
+            <CarromAdvancedModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
           )}
           {activeSport.type === 'AUCTION_TEAM' && activeSport.id !== 'cricket' && activeSport.id !== 'table_tennis' && activeSport.id !== 'badminton' && (
             <TeamAuctionModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
