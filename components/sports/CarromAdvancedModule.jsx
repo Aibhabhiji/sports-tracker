@@ -35,12 +35,46 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
 
-  // Helper to format Date to '15Aug26'
+  // Helper to format Date object or Date string to '15Aug26'
   const formatDateShort = (dateObj) => {
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const month = dateObj.toLocaleString('en-US', { month: 'short' });
-    const year = String(dateObj.getFullYear()).slice(-2);
+    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
+    if (isNaN(d.getTime())) return '15Aug26';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const year = String(d.getFullYear()).slice(-2);
     return `${day}${month}${year}`;
+  };
+
+  // Helper to convert '15Aug26' or '15 Aug 2026' to ISO date string 'YYYY-MM-DD' for <input type="date">
+  const parseShortDateToISO = (dateStr) => {
+    if (!dateStr) return '2026-08-15';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+    const match = dateStr.match(/^(\d{1,2})\s*([A-Za-z]{3})\s*(\d{2,4})$/);
+    if (match) {
+      const day = match[1].padStart(2, '0');
+      const monthStr = match[2];
+      const yearStr = match[3].length === 2 ? `20${match[3]}` : match[3];
+      const months = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+      const month = months[monthStr.toLowerCase()] || '08';
+      return `${yearStr}-${month}-${day}`;
+    }
+    return '2026-08-15';
+  };
+
+  // Helper to convert ISO date string 'YYYY-MM-DD' to short date format '15Aug26'
+  const formatDateShortFromISO = (isoStr) => {
+    if (!isoStr) return '15Aug26';
+    const parts = isoStr.split('-');
+    if (parts.length === 3) {
+      const year = parts[0].slice(-2);
+      const monthIndex = parseInt(parts[1], 10) - 1;
+      const day = parts[2].padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[monthIndex] || 'Aug';
+      return `${day}${month}${year}`;
+    }
+    return '15Aug26';
   };
 
   // Helper to format Hour (24h to 12h AM/PM string)
@@ -50,7 +84,80 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     return `${h} ${ampm}`.replace(' ', '');
   };
 
-  // Calculate Initial Match Schedule
+  // Central Admin Verification Guard
+  const verifyAdminAndExecute = (actionCallback) => {
+    if (isAdminUnlocked) {
+      actionCallback();
+    } else {
+      const pin = prompt('🔒 Admin Password Required to Edit/Save Changes:');
+      if (pin === 'admin123' || pin === 'carrom2026' || pin === 'sanvi2026' || pin === 'chess2026') {
+        setIsAdminUnlocked(true);
+        actionCallback();
+      } else if (pin !== null) {
+        alert('❌ Incorrect admin password. Action cancelled.');
+      }
+    }
+  };
+
+  // Conflict-free match schedule generator (Prevents team time slot overlaps)
+  const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15')) => {
+    const slotsPerDay = 6;
+    const parallelCapacity = 3; // Max 3 boards at once
+    const startHour = 11;
+    const matchDuration = 1;
+
+    // Track usage per slot: key = "dayIdx_slotIdx" -> { count: number, teams: Set }
+    const slotTracker = {};
+
+    return allMatches.map((m) => {
+      let dayIdx = 0;
+      let slotIdx = 0;
+      let assigned = false;
+
+      const teamAId = m.playerA?.id || m.playerA?.name;
+      const teamBId = m.playerB?.id || m.playerB?.name;
+
+      while (!assigned) {
+        const key = `${dayIdx}_${slotIdx}`;
+        if (!slotTracker[key]) {
+          slotTracker[key] = { count: 0, teams: new Set() };
+        }
+
+        const currentSlot = slotTracker[key];
+        const hasConflict = (teamAId && currentSlot.teams.has(teamAId)) || (teamBId && currentSlot.teams.has(teamBId));
+
+        if (currentSlot.count < parallelCapacity && !hasConflict) {
+          currentSlot.count += 1;
+          if (teamAId) currentSlot.teams.add(teamAId);
+          if (teamBId) currentSlot.teams.add(teamBId);
+
+          const currentDate = new Date(startD);
+          currentDate.setDate(currentDate.getDate() + dayIdx);
+          const dateStr = formatDateShort(currentDate);
+
+          const slotStartHour = startHour + (slotIdx * matchDuration);
+          const slotEndHour = slotStartHour + matchDuration;
+          const timeSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
+
+          assigned = true;
+          return {
+            ...m,
+            scheduledDate: dateStr,
+            scheduledTimeSlot: timeSlotStr,
+            fullScheduleText: `Date:${dateStr} ${timeSlotStr}`,
+          };
+        }
+
+        slotIdx += 1;
+        if (slotIdx >= slotsPerDay) {
+          slotIdx = 0;
+          dayIdx += 1;
+        }
+      }
+    });
+  };
+
+  // Calculate Initial Match Schedule Fallback
   const calculateInitialMatchSchedule = (matchIndex) => {
     const startD = new Date('2026-08-15');
     const startHour = 11;
@@ -152,6 +259,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
                 const pid = player.id || player.regId || player.Registration_ID;
                 if (pid) schedulesMap[pid] = scheduleEntry;
+                if (player.name) schedulesMap[player.name.trim().toLowerCase()] = scheduleEntry;
 
                 const origP = (participants || []).find(p => p.name?.trim().toLowerCase() === player.name?.trim().toLowerCase());
                 if (origP) {
@@ -196,44 +304,46 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
   // Feature 1: Explicitly form 2-player Teams per category
   const handleGenerateTeams = () => {
-    if (filteredParticipants.length < 2) {
-      alert(`Need at least 2 participants in "${selectedCategory}" to form teams.`);
-      return;
-    }
-
-    const shuffled = [...filteredParticipants].sort(() => 0.5 - Math.random());
-    const generatedTeams = [];
-
-    for (let i = 0; i < shuffled.length; i += 2) {
-      if (i + 1 < shuffled.length) {
-        const p1 = shuffled[i];
-        const p2 = shuffled[i + 1];
-        const teamNum = generatedTeams.length + 1;
-        generatedTeams.push({
-          id: `TEAM_${selectedCategory}_${teamNum}_${Date.now()}`,
-          name: `Team ${teamNum} (${p1.name} & ${p2.name})`,
-          shortName: `Team ${teamNum}`,
-          player1: {
-            id: p1.id || p1.regId || p1.Registration_ID,
-            name: p1.name,
-            flat: p1.flat,
-          },
-          player2: {
-            id: p2.id || p2.regId || p2.Registration_ID,
-            name: p2.name,
-            flat: p2.flat,
-          },
-        });
-      } else {
-        alert(`Note: Participant "${shuffled[i].name}" was left without a partner due to an odd total count (${shuffled.length}).`);
+    verifyAdminAndExecute(() => {
+      if (filteredParticipants.length < 2) {
+        alert(`Need at least 2 participants in "${selectedCategory}" to form teams.`);
+        return;
       }
-    }
 
-    updateCurrentCategoryState(undefined, undefined, generatedTeams);
-    alert(`Successfully created ${generatedTeams.length} 2-player teams for category "${selectedCategory}"!`);
+      const shuffled = [...filteredParticipants].sort(() => 0.5 - Math.random());
+      const generatedTeams = [];
+
+      for (let i = 0; i < shuffled.length; i += 2) {
+        if (i + 1 < shuffled.length) {
+          const p1 = shuffled[i];
+          const p2 = shuffled[i + 1];
+          const teamNum = generatedTeams.length + 1;
+          generatedTeams.push({
+            id: `TEAM_${selectedCategory}_${teamNum}_${Date.now()}`,
+            name: `Team ${teamNum} (${p1.name} & ${p2.name})`,
+            shortName: `Team ${teamNum}`,
+            player1: {
+              id: p1.id || p1.regId || p1.Registration_ID,
+              name: p1.name,
+              flat: p1.flat,
+            },
+            player2: {
+              id: p2.id || p2.regId || p2.Registration_ID,
+              name: p2.name,
+              flat: p2.flat,
+            },
+          });
+        } else {
+          alert(`Note: Participant "${shuffled[i].name}" was left without a partner due to an odd total count (${shuffled.length}).`);
+        }
+      }
+
+      updateCurrentCategoryState(undefined, undefined, generatedTeams);
+      alert(`Successfully created ${generatedTeams.length} 2-player teams for category "${selectedCategory}"!`);
+    });
   };
 
-  // Helper to fetch individual participant's assigned team and schedule
+  // Helper to fetch individual participant's assigned team and schedule (with immediate rounds fallback)
   const getParticipantTeamAndSchedule = (p, idx = 0) => {
     const pid = p.id || p.regId || p.Registration_ID;
     const normName = p.name?.trim().toLowerCase();
@@ -253,12 +363,43 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       }
     }
 
-    if (pid && sportState?.playerSchedules?.[pid]) {
+    const scheduleFromStore =
+      (pid && sportState?.playerSchedules?.[pid]) ||
+      (normName && sportState?.playerSchedules?.[normName]) ||
+      (p.id && sportState?.playerSchedules?.[p.id]) ||
+      (p.regId && sportState?.playerSchedules?.[p.regId]) ||
+      (p.Registration_ID && sportState?.playerSchedules?.[p.Registration_ID]);
+
+    if (scheduleFromStore) {
       return {
         team: foundTeam,
-        partnerName: partnerName || sportState.playerSchedules[pid].partnerName,
-        schedule: sportState.playerSchedules[pid]
+        partnerName: partnerName || scheduleFromStore.partnerName,
+        schedule: scheduleFromStore
       };
+    }
+
+    // Direct scan across active category rounds for team schedule updates
+    if (foundTeam) {
+      for (const r of rounds) {
+        for (const g of r.groups || []) {
+          for (const m of g.matches || []) {
+            if (m.playerA?.id === foundTeam.id || m.playerB?.id === foundTeam.id) {
+              const textVal = m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`;
+              return {
+                team: foundTeam,
+                partnerName,
+                schedule: {
+                  text: textVal,
+                  scheduledText: textVal,
+                  date: m.scheduledDate,
+                  time: m.scheduledTimeSlot,
+                  roundName: r.roundName
+                }
+              };
+            }
+          }
+        }
+      }
     }
 
     const matchIdx = Math.floor(idx / 2);
@@ -277,274 +418,298 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
   // Initialize Round 1 Team Fixtures
   const handleInitializeRound1 = () => {
-    let teamsToUse = currentTeams;
+    verifyAdminAndExecute(() => {
+      let teamsToUse = currentTeams;
 
-    if (!teamsToUse || teamsToUse.length < 2) {
-      if (filteredParticipants.length < 2) {
-        alert(`Not enough participants in "${selectedCategory}" to form teams.`);
+      if (!teamsToUse || teamsToUse.length < 2) {
+        if (filteredParticipants.length < 2) {
+          alert(`Not enough participants in "${selectedCategory}" to form teams.`);
+          return;
+        }
+        // Auto-generate 2-player teams if not already done
+        const shuffledParts = [...filteredParticipants].sort(() => 0.5 - Math.random());
+        teamsToUse = [];
+        for (let i = 0; i < shuffledParts.length; i += 2) {
+          if (i + 1 < shuffledParts.length) {
+            const p1 = shuffledParts[i];
+            const p2 = shuffledParts[i + 1];
+            const teamNum = teamsToUse.length + 1;
+            teamsToUse.push({
+              id: `TEAM_${selectedCategory}_${teamNum}_${Date.now()}`,
+              name: `Team ${teamNum} (${p1.name} & ${p2.name})`,
+              shortName: `Team ${teamNum}`,
+              player1: { id: p1.id || p1.regId || p1.Registration_ID, name: p1.name, flat: p1.flat },
+              player2: { id: p2.id || p2.regId || p2.Registration_ID, name: p2.name, flat: p2.flat },
+            });
+          }
+        }
+      }
+
+      if (teamsToUse.length < 2) {
+        alert('Need at least 2 teams to initialize Round 1 matches.');
         return;
       }
-      // Auto-generate 2-player teams if not already done
-      const shuffledParts = [...filteredParticipants].sort(() => 0.5 - Math.random());
-      teamsToUse = [];
-      for (let i = 0; i < shuffledParts.length; i += 2) {
-        if (i + 1 < shuffledParts.length) {
-          const p1 = shuffledParts[i];
-          const p2 = shuffledParts[i + 1];
-          const teamNum = teamsToUse.length + 1;
-          teamsToUse.push({
-            id: `TEAM_${selectedCategory}_${teamNum}_${Date.now()}`,
-            name: `Team ${teamNum} (${p1.name} & ${p2.name})`,
-            shortName: `Team ${teamNum}`,
-            player1: { id: p1.id || p1.regId || p1.Registration_ID, name: p1.name, flat: p1.flat },
-            player2: { id: p2.id || p2.regId || p2.Registration_ID, name: p2.name, flat: p2.flat },
-          });
+
+      const shuffledTeams = [...teamsToUse].sort(() => 0.5 - Math.random());
+      const rawMatchesList = [];
+      const groupStructures = [];
+      let groupCharCode = 65;
+
+      for (let i = 0; i < shuffledTeams.length; i += groupSize) {
+        const groupTeams = shuffledTeams.slice(i, i + groupSize);
+        const groupName = `Group ${String.fromCharCode(groupCharCode++)}`;
+
+        const standings = groupTeams.map(t => ({
+          id: t.id,
+          name: t.name,
+          shortName: t.shortName,
+          player1: t.player1,
+          player2: t.player2,
+          played: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          points: 0,
+        }));
+
+        const groupMatches = [];
+        for (let x = 0; x < standings.length; x++) {
+          for (let y = x + 1; y < standings.length; y++) {
+            const matchObj = {
+              id: `CARROM_MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
+              groupName,
+              playerA: standings[x],
+              playerB: standings[y],
+              scoreA: null,
+              scoreB: null,
+              isLocked: false,
+            };
+            groupMatches.push(matchObj);
+            rawMatchesList.push(matchObj);
+          }
         }
+
+        groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
       }
-    }
 
-    if (teamsToUse.length < 2) {
-      alert('Need at least 2 teams to initialize Round 1 matches.');
-      return;
-    }
+      // Conflict-free time slot assignment across all matches
+      const scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
 
-    const shuffledTeams = [...teamsToUse].sort(() => 0.5 - Math.random());
-    const initialGroups = [];
-    let groupCharCode = 65;
-    let globalMatchCounter = 0;
-
-    for (let i = 0; i < shuffledTeams.length; i += groupSize) {
-      const groupTeams = shuffledTeams.slice(i, i + groupSize);
-      const groupName = `Group ${String.fromCharCode(groupCharCode++)}`;
-
-      const standings = groupTeams.map(t => ({
-        id: t.id,
-        name: t.name,
-        shortName: t.shortName,
-        player1: t.player1,
-        player2: t.player2,
-        played: 0,
-        won: 0,
-        drawn: 0,
-        lost: 0,
-        points: 0,
+      const initialGroups = groupStructures.map(grp => ({
+        groupName: grp.groupName,
+        standings: grp.standings,
+        matches: scheduledMatches.filter(m => grp.matchIds.includes(m.id))
       }));
 
-      const matches = [];
-      for (let x = 0; x < standings.length; x++) {
-        for (let y = x + 1; y < standings.length; y++) {
-          const sched = calculateInitialMatchSchedule(globalMatchCounter++);
-          matches.push({
-            id: `CARROM_MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
-            playerA: standings[x], // Team A
-            playerB: standings[y], // Team B
-            scoreA: null,
-            scoreB: null,
-            isLocked: false,
-            scheduledDate: sched.scheduledDate,
-            scheduledTimeSlot: sched.scheduledTimeSlot,
-            fullScheduleText: sched.fullScheduleText,
-          });
-        }
-      }
-
-      initialGroups.push({ groupName, standings, matches });
-    }
-
-    const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
-    updateCurrentCategoryState(newRounds, 0, teamsToUse);
-    alert(`Round 1 initialized for ${selectedCategory} with ${teamsToUse.length} doubles teams! All player schedules are now active.`);
+      const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
+      updateCurrentCategoryState(newRounds, 0, teamsToUse);
+      alert(`Round 1 initialized for ${selectedCategory} with ${teamsToUse.length} doubles teams! All player schedules are now active.`);
+    });
   };
 
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
-    if (!tempScheduleDate || !tempScheduleTime) {
-      alert('Please provide both a valid date and time slot.');
-      return;
-    }
+    verifyAdminAndExecute(() => {
+      if (!tempScheduleDate || !tempScheduleTime) {
+        alert('Please provide both a valid date and time slot.');
+        return;
+      }
 
-    const formattedDate = formatDateShort(new Date(tempScheduleDate));
-    const fullText = `Date:${formattedDate} ${tempScheduleTime}`;
+      const formattedDate = formatDateShortFromISO(tempScheduleDate);
+      const fullText = `Date:${formattedDate} ${tempScheduleTime}`;
 
-    const updatedRounds = rounds.map((r, rIdx) => {
-      if (rIdx !== currentRoundIndex) return r;
+      const updatedRounds = rounds.map((r, rIdx) => {
+        if (rIdx !== currentRoundIndex) return r;
 
-      const updatedGroups = r.groups.map((grp, gIdx) => {
+        const updatedGroups = r.groups.map((grp, gIdx) => {
+          if (gIdx !== groupIndex) return grp;
+
+          const updatedMatches = grp.matches.map(m => {
+            if (m.id === matchId) {
+              return {
+                ...m,
+                scheduledDate: formattedDate,
+                scheduledTimeSlot: tempScheduleTime,
+                fullScheduleText: fullText,
+              };
+            }
+            return m;
+          });
+
+          return { ...grp, matches: updatedMatches };
+        });
+
+        return { ...r, groups: updatedGroups };
+      });
+
+      updateCurrentCategoryState(updatedRounds, currentRoundIndex, currentTeams);
+      setEditingMatchScheduleId(null);
+      setTempScheduleDate('');
+      setTempScheduleTime('');
+      alert(`Match schedule updated successfully to ${fullText}!`);
+    });
+  };
+
+  const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
+    verifyAdminAndExecute(() => {
+      const currentRound = rounds[currentRoundIndex];
+      if (!currentRound) return;
+
+      const numA = Number(scoreA);
+      const numB = Number(scoreB);
+
+      const updatedGroups = currentRound.groups.map((grp, gIdx) => {
         if (gIdx !== groupIndex) return grp;
 
         const updatedMatches = grp.matches.map(m => {
           if (m.id === matchId) {
-            return {
-              ...m,
-              scheduledDate: formattedDate,
-              scheduledTimeSlot: tempScheduleTime,
-              fullScheduleText: fullText,
-            };
+            return { ...m, scoreA: numA, scoreB: numB, isLocked: true };
           }
           return m;
         });
 
-        return { ...grp, matches: updatedMatches };
-      });
+        const newStandings = grp.standings.map(s => ({
+          ...s,
+          played: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          points: 0,
+        }));
 
-      return { ...r, groups: updatedGroups };
-    });
-
-    updateCurrentCategoryState(updatedRounds, currentRoundIndex, currentTeams);
-    setEditingMatchScheduleId(null);
-    setTempScheduleDate('');
-    setTempScheduleTime('');
-    alert(`Match schedule updated successfully to ${fullText}!`);
-  };
-
-  const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
-    const currentRound = rounds[currentRoundIndex];
-    if (!currentRound) return;
-
-    const numA = Number(scoreA);
-    const numB = Number(scoreB);
-
-    const updatedGroups = currentRound.groups.map((grp, gIdx) => {
-      if (gIdx !== groupIndex) return grp;
-
-      const updatedMatches = grp.matches.map(m => {
-        if (m.id === matchId) {
-          return { ...m, scoreA: numA, scoreB: numB, isLocked: true };
-        }
-        return m;
-      });
-
-      const newStandings = grp.standings.map(s => ({
-        ...s,
-        played: 0,
-        won: 0,
-        drawn: 0,
-        lost: 0,
-        points: 0,
-      }));
-
-      updatedMatches.forEach(m => {
-        if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
-          const tA = newStandings.find(s => s.id === m.playerA.id);
-          const tB = newStandings.find(s => s.id === m.playerB.id);
-          if (tA && tB) {
-            const sA = Number(m.scoreA);
-            const sB = Number(m.scoreB);
-            tA.played += 1;
-            tB.played += 1;
-            if (sA > sB) {
-              tA.won += 1; tA.points += 1;
-              tB.lost += 1;
-            } else if (sB > sA) {
-              tB.won += 1; tB.points += 1;
-              tA.lost += 1;
-            } else {
-              tA.drawn += 1; tA.points += 0.5;
-              tB.drawn += 1; tB.points += 0.5;
+        updatedMatches.forEach(m => {
+          if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
+            const tA = newStandings.find(s => s.id === m.playerA.id);
+            const tB = newStandings.find(s => s.id === m.playerB.id);
+            if (tA && tB) {
+              const sA = Number(m.scoreA);
+              const sB = Number(m.scoreB);
+              tA.played += 1;
+              tB.played += 1;
+              if (sA > sB) {
+                tA.won += 1; tA.points += 1;
+                tB.lost += 1;
+              } else if (sB > sA) {
+                tB.won += 1; tB.points += 1;
+                tA.lost += 1;
+              } else {
+                tA.drawn += 1; tA.points += 0.5;
+                tB.drawn += 1; tB.points += 0.5;
+              }
             }
           }
-        }
+        });
+
+        return { ...grp, standings: newStandings, matches: updatedMatches };
       });
 
-      return { ...grp, standings: newStandings, matches: updatedMatches };
+      const updatedRounds = [...rounds];
+      updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
+      updateCurrentCategoryState(updatedRounds, currentRoundIndex, currentTeams);
     });
-
-    const updatedRounds = [...rounds];
-    updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
-    updateCurrentCategoryState(updatedRounds, currentRoundIndex, currentTeams);
   };
 
   const handleAdvanceToNextRound = () => {
-    const currentRound = rounds[currentRoundIndex];
-    if (!currentRound) return;
+    verifyAdminAndExecute(() => {
+      const currentRound = rounds[currentRoundIndex];
+      if (!currentRound) return;
 
-    const hasUncompletedMatches = currentRound.groups.some(grp =>
-      grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
-    );
+      const hasUncompletedMatches = currentRound.groups.some(grp =>
+        grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
+      );
 
-    if (hasUncompletedMatches) {
-      alert('❌ Cannot advance to the next round until ALL team matches in the current round are completed!');
-      return;
-    }
-
-    let qualifiedTeams = [];
-    currentRound.groups.forEach(grp => {
-      const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-      const topN = sorted.slice(0, advancementCount);
-      qualifiedTeams.push(...topN);
-    });
-
-    const qSeenIds = new Set();
-    const uniqueQualified = qualifiedTeams.filter(t => {
-      if (t.id && qSeenIds.has(t.id)) return false;
-      if (t.id) qSeenIds.add(t.id);
-      return true;
-    });
-
-    if (uniqueQualified.length < 2) {
-      alert('Not enough qualified teams to form the next round.');
-      return;
-    }
-
-    let nextRoundName = `Round ${rounds.length + 1}`;
-    if (uniqueQualified.length === 8) nextRoundName = 'Quarter Finals';
-    else if (uniqueQualified.length === 4) nextRoundName = 'Semi Finals';
-    else if (uniqueQualified.length <= 2) nextRoundName = 'Grand Finals 🏆';
-
-    const shuffled = [...uniqueQualified].sort(() => 0.5 - Math.random());
-    const nextGroups = [];
-    let groupCharCode = 65;
-    const currentGroupSize = uniqueQualified.length <= 4 ? uniqueQualified.length : groupSize;
-    let globalMatchCounter = 0;
-
-    for (let i = 0; i < shuffled.length; i += currentGroupSize) {
-      const groupTeams = shuffled.slice(i, i + currentGroupSize);
-      const groupName = uniqueQualified.length <= 4 ? nextRoundName : `Group ${String.fromCharCode(groupCharCode++)}`;
-
-      const standings = groupTeams.map(t => ({
-        id: t.id,
-        name: t.name,
-        shortName: t.shortName,
-        player1: t.player1,
-        player2: t.player2,
-        played: 0,
-        won: 0,
-        drawn: 0,
-        lost: 0,
-        points: 0,
-      }));
-
-      const matches = [];
-      for (let x = 0; x < standings.length; x++) {
-        for (let y = x + 1; y < standings.length; y++) {
-          const sched = calculateInitialMatchSchedule(globalMatchCounter++);
-          matches.push({
-            id: `CARROM_MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
-            playerA: standings[x],
-            playerB: standings[y],
-            scoreA: null,
-            scoreB: null,
-            isLocked: false,
-            scheduledDate: sched.scheduledDate,
-            scheduledTimeSlot: sched.scheduledTimeSlot,
-            fullScheduleText: sched.fullScheduleText,
-          });
-        }
+      if (hasUncompletedMatches) {
+        alert('❌ Cannot advance to the next round until ALL team matches in the current round are completed!');
+        return;
       }
 
-      nextGroups.push({ groupName, standings, matches });
-    }
+      let qualifiedTeams = [];
+      currentRound.groups.forEach(grp => {
+        const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+        const topN = sorted.slice(0, advancementCount);
+        qualifiedTeams.push(...topN);
+      });
 
-    const updatedRounds = [...rounds, { roundName: nextRoundName, groups: nextGroups }];
-    updateCurrentCategoryState(updatedRounds, rounds.length, currentTeams);
-    alert(`Successfully advanced ${uniqueQualified.length} teams to ${nextRoundName} for category ${selectedCategory}!`);
+      const qSeenIds = new Set();
+      const uniqueQualified = qualifiedTeams.filter(t => {
+        if (t.id && qSeenIds.has(t.id)) return false;
+        if (t.id) qSeenIds.add(t.id);
+        return true;
+      });
+
+      if (uniqueQualified.length < 2) {
+        alert('Not enough qualified teams to form the next round.');
+        return;
+      }
+
+      let nextRoundName = `Round ${rounds.length + 1}`;
+      if (uniqueQualified.length === 8) nextRoundName = 'Quarter Finals';
+      else if (uniqueQualified.length === 4) nextRoundName = 'Semi Finals';
+      else if (uniqueQualified.length <= 2) nextRoundName = 'Grand Finals 🏆';
+
+      const shuffled = [...uniqueQualified].sort(() => 0.5 - Math.random());
+      const rawMatchesList = [];
+      const groupStructures = [];
+      let groupCharCode = 65;
+      const currentGroupSize = uniqueQualified.length <= 4 ? uniqueQualified.length : groupSize;
+
+      for (let i = 0; i < shuffled.length; i += currentGroupSize) {
+        const groupTeams = shuffled.slice(i, i + currentGroupSize);
+        const groupName = uniqueQualified.length <= 4 ? nextRoundName : `Group ${String.fromCharCode(groupCharCode++)}`;
+
+        const standings = groupTeams.map(t => ({
+          id: t.id,
+          name: t.name,
+          shortName: t.shortName,
+          player1: t.player1,
+          player2: t.player2,
+          played: 0,
+          won: 0,
+          drawn: 0,
+          lost: 0,
+          points: 0,
+        }));
+
+        const groupMatches = [];
+        for (let x = 0; x < standings.length; x++) {
+          for (let y = x + 1; y < standings.length; y++) {
+            const matchObj = {
+              id: `CARROM_MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
+              groupName,
+              playerA: standings[x],
+              playerB: standings[y],
+              scoreA: null,
+              scoreB: null,
+              isLocked: false,
+            };
+            groupMatches.push(matchObj);
+            rawMatchesList.push(matchObj);
+          }
+        }
+
+        groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
+      }
+
+      // Conflict-free time slot assignment across all next-round matches
+      const scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+
+      const nextGroups = groupStructures.map(grp => ({
+        groupName: grp.groupName,
+        standings: grp.standings,
+        matches: scheduledMatches.filter(m => grp.matchIds.includes(m.id))
+      }));
+
+      const updatedRounds = [...rounds, { roundName: nextRoundName, groups: nextGroups }];
+      updateCurrentCategoryState(updatedRounds, rounds.length, currentTeams);
+      alert(`Successfully advanced ${uniqueQualified.length} teams to ${nextRoundName} for category ${selectedCategory}!`);
+    });
   };
 
   const verifyAdminPassword = (e) => {
     e.preventDefault();
-    if (adminPasswordInput === 'admin123' || adminPasswordInput === 'carrom2026' || adminPasswordInput === 'chess2026') {
+    if (adminPasswordInput === 'admin123' || adminPasswordInput === 'carrom2026' || adminPasswordInput === 'sanvi2026' || adminPasswordInput === 'chess2026') {
       setIsAdminUnlocked(true);
       setAdminPasswordInput('');
-      alert('Admin unlocked! You can now edit locked match results.');
+      alert('Admin unlocked! You can now edit schedules and match results.');
     } else {
       alert('Incorrect admin password.');
     }
@@ -826,9 +991,11 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                               <div className="flex items-center gap-2 flex-wrap">
                                 <div
                                   onClick={() => {
-                                    setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
-                                    setTempScheduleDate('2026-08-15');
-                                    setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
+                                    verifyAdminAndExecute(() => {
+                                      setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
+                                      setTempScheduleDate(parseShortDateToISO(m.scheduledDate));
+                                      setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
+                                    });
                                   }}
                                   className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
                                   title="Click to edit schedule"
@@ -883,7 +1050,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                             )}
                           </div>
 
-                          {/* Schedule Editor Modal */}
+                          {/* Schedule Editor Drawer */}
                           {editingMatchScheduleId === m.id && (
                             <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3 shadow-xl">
                               <div className="flex justify-between items-center">
