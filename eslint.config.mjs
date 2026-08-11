@@ -3,9 +3,15 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
-  // Override default ignores of eslint-config-next.
+  {
+    rules: {
+      // Strictly enforce Next.js Image component usage over raw <img>
+      "@next/next/no-img-element": "error",
+      // Warn on heavy synchronous scripts in head
+      "@next/next/no-sync-scripts": "error",
+    },
+  },
   globalIgnores([
-    // Default ignores of eslint-config-next:
     ".next/**",
     "out/**",
     "build/**",
