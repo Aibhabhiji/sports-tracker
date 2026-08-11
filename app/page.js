@@ -50,7 +50,7 @@ const compressSponsorImage = (file, maxWidth = 400, maxHeight = 400, quality = 0
     const reader = new FileReader();
     reader.readAsDataURL(file);
     reader.onload = (event) => {
-      const img = new typeof window.Image() !== 'undefined' ? new window.Image() : null;
+      const img = typeof window !== 'undefined' && window.Image ? new Image() : null;
       if (!img) {
         resolve(event.target.result);
         return;
@@ -398,7 +398,7 @@ export default function SanviOlympicsPortal() {
         />
       )}
 
-      {/* Official Event Sponsors Banner — Next.js Image Component Optimized */}
+      {/* Official Event Sponsors Banner */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
