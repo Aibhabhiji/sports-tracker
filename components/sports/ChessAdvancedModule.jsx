@@ -3,13 +3,12 @@
 import React, { useState, useEffect } from 'react';
 
 export default function ChessAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
-  // Strict, cleaned list of allowed categories as requested
+  // Merged allowed categories strictly for chess module
   const categories = [
     'Under 8 Years Kids',
     'Under 12 Years Kids',
     '12 - 17 Years Teens',
-    '18 - 55 Years Adults',
-    '55+ Seniors'
+    '18+ Years Adults'
   ];
 
   const [selectedCategory, setSelectedCategory] = useState('Under 12 Years Kids');
@@ -32,7 +31,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
 
-  // Update defaults based on selected category (e.g. Under 12 Kids -> 5 per group, top 3 advance)
+  // Update defaults based on selected category
   useEffect(() => {
     if (selectedCategory === 'Under 12 Years Kids') {
       setAdvancementCount(3);
@@ -149,14 +148,14 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // Weekend-by-weekend match schedule generator for 18 - 55 Years Adults
-  // Ensures each player plays 1 match per weekend
+  // Weekend-by-weekend match schedule generator for 18+ Years Adults
+  // Ensures each player plays 2 matches per weekend
   const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15')) => {
     const parallelCapacity = 3;
     const slotsPerDay = 4;
     const startHour = 11;
 
-    // weekendTracker[weekendIdx] = { players: Set of player IDs, slots: { "dayOffset_slotIdx": count } }
+    // Track match count per player per weekend and slot occupancies
     const weekendTracker = {};
 
     return allMatches.map((m) => {
@@ -171,25 +170,40 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       while (!assigned) {
         if (!weekendTracker[weekendIdx]) {
           weekendTracker[weekendIdx] = {
-            players: new Set(),
+            playerCounts: {},
             slots: {}
           };
         }
 
         const wData = weekendTracker[weekendIdx];
-        const hasConflict = (playerAId && wData.players.has(playerAId)) || (playerBId && wData.players.has(playerBId));
+        const countA = wData.playerCounts[playerAId] || 0;
+        const countB = wData.playerCounts[playerBId] || 0;
 
-        if (!hasConflict) {
+        // Schedule only if both players have played fewer than 2 matches this weekend
+        if (countA < 2 && countB < 2) {
           // Try scheduling on Saturday (dayOffset = 0) or Sunday (dayOffset = 1)
           for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
             for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
               const slotKey = `${dayOffset}_${slotIdx}`;
-              const currentCount = wData.slots[slotKey] || 0;
+              if (!wData.slots[slotKey]) {
+                wData.slots[slotKey] = { count: 0, players: new Set() };
+              }
+              const currentSlot = wData.slots[slotKey];
 
-              if (currentCount < parallelCapacity) {
-                wData.slots[slotKey] = currentCount + 1;
-                if (playerAId) wData.players.add(playerAId);
-                if (playerBId) wData.players.add(playerBId);
+              const hasTimeSlotConflict = 
+                (playerAId && currentSlot.players.has(playerAId)) || 
+                (playerBId && currentSlot.players.has(playerBId));
+
+              if (currentSlot.count < parallelCapacity && !hasTimeSlotConflict) {
+                currentSlot.count += 1;
+                if (playerAId) {
+                  currentSlot.players.add(playerAId);
+                  wData.playerCounts[playerAId] = countA + 1;
+                }
+                if (playerBId) {
+                  currentSlot.players.add(playerBId);
+                  wData.playerCounts[playerBId] = countB + 1;
+                }
 
                 const matchDate = new Date(baseStart);
                 matchDate.setDate(matchDate.getDate() + (weekendIdx * 7) + dayOffset);
@@ -314,11 +328,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     if (catStr.includes('12 - 17') || catStr.includes('teens')) {
       return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17') || pCat.includes('teen') || pAgeGroup.includes('teen');
     }
-    if (catStr.includes('18 - 55') || catStr.includes('adults')) {
-      return (numAge >= 18 && numAge <= 55) || pCat.includes('adult') || pAgeGroup.includes('adult') || numAge === 0;
-    }
-    if (catStr.includes('55+') || catStr.includes('senior')) {
-      return numAge >= 55 || pCat.includes('senior') || pCat.includes('veteran') || pAgeGroup.includes('senior');
+    if (catStr.includes('18+') || catStr.includes('adult')) {
+      return numAge >= 18 || pCat.includes('adult') || pCat.includes('senior') || pCat.includes('18+') || pAgeGroup.includes('adult') || pAgeGroup.includes('senior') || numAge === 0;
     }
 
     return pCat.includes(catStr) || pAgeGroup.includes(catStr);
@@ -470,9 +481,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
 
-    // Weekend scheduling for 18 - 55 Adults vs standard conflict-free for others
+    // Weekend scheduling (2 matches/weekend) for 18+ Adults vs standard conflict-free for others
     let scheduledMatches;
-    if (selectedCategory === '18 - 55 Years Adults') {
+    if (selectedCategory === '18+ Years Adults') {
       scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList);
     } else {
       scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
@@ -673,7 +684,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
 
     let scheduledMatches;
-    if (selectedCategory === '18 - 55 Years Adults') {
+    if (selectedCategory === '18+ Years Adults') {
       scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList);
     } else {
       scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
@@ -717,7 +728,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
-          <p className="text-xs text-slate-400">Independent category tournaments, group rules, weekend scheduling for adults & adhoc overrides.</p>
+          <p className="text-xs text-slate-400">Independent category tournaments, group rules, weekend scheduling (2 matches/weekend for adults) & adhoc overrides.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
