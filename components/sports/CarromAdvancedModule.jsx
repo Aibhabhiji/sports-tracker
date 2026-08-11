@@ -1077,7 +1077,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                                       type="date"
                                       value={tempScheduleDate}
                                       onChange={(e) => setTempScheduleDate(e.target.value)}
-                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none [color-scheme:dark] cursor-pointer"
                                     />
                                   </div>
                                   <div>
