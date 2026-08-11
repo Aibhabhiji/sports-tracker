@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import Image from 'next/image';
 import { getInitialParticipants, parseCSVParticipants } from '@/lib/participantStore';
 import TeamAuctionModule from '@/components/sports/TeamAuctionModule';
 import CarromAdvancedModule from '@/components/sports/CarromAdvancedModule';
@@ -43,6 +44,46 @@ const normalizeSponsors = (incomingSponsors = []) => {
   return list;
 };
 
+// Client-side image compressor to keep Redis API payload lightweight
+const compressSponsorImage = (file, maxWidth = 400, maxHeight = 400, quality = 0.8) => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new typeof window.Image() !== 'undefined' ? new window.Image() : null;
+      if (!img) {
+        resolve(event.target.result);
+        return;
+      }
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/webp', quality));
+      };
+      img.onerror = () => resolve(event.target.result);
+    };
+  });
+};
+
 export default function SanviOlympicsPortal() {
   const [activeSport, setActiveSport] = useState(SPORTS_LIST[1]); // Default to Football
   const [activeSubTab, setActiveSubTab] = useState('participants');
@@ -77,7 +118,6 @@ export default function SanviOlympicsPortal() {
           }
           if (json.sportsData) setSportsData(json.sportsData);
           if (json.sponsors) {
-            // Always normalize incoming sponsors from the API database to 12 slots
             setSponsors(normalizeSponsors(json.sponsors));
           }
         }
@@ -90,7 +130,7 @@ export default function SanviOlympicsPortal() {
     fetchCentralData();
   }, []);
 
-  const verifyAdminAndExecute = (actionCallback) => {
+  const verifyAdminAndExecute = useCallback((actionCallback) => {
     if (!isAdminMode) {
       const pin = prompt('🔒 Admin Password Required to Edit/Save Changes:\n(Enter admin passcode)');
       if (pin === 'admin123' || pin === 'sanvi2026') {
@@ -102,7 +142,7 @@ export default function SanviOlympicsPortal() {
     } else {
       actionCallback();
     }
-  };
+  }, [isAdminMode]);
 
   const saveToCentralServer = async (updatedParticipants, updatedSportsData, updatedSponsors) => {
     verifyAdminAndExecute(async () => {
@@ -142,71 +182,73 @@ export default function SanviOlympicsPortal() {
     });
   };
 
-  // Dynamic Filtering & Automatic Participant Deduplication Logic
-  const seenKeys = new Set();
-  const filteredParticipants = participants.filter((p) => {
-    const pName = (p.name || p.Name || '').toString().trim().toLowerCase();
-    const pFlat = (p.flat || p.Flat || '').toString().trim().toLowerCase();
-    const pSport = (p.gameChoice || p.sport || p.Sport || '').toString().trim().toLowerCase();
-    const pId = (p.id || p.regId || p.Registration_ID || '').toString().trim();
+  // Performance Optimization: Memoize Dynamic Filtering & Participant Deduplication
+  const filteredParticipants = useMemo(() => {
+    const seenKeys = new Set();
+    return participants.filter((p) => {
+      const pName = (p.name || p.Name || '').toString().trim().toLowerCase();
+      const pFlat = (p.flat || p.Flat || '').toString().trim().toLowerCase();
+      const pSport = (p.gameChoice || p.sport || p.Sport || '').toString().trim().toLowerCase();
+      const pId = (p.id || p.regId || p.Registration_ID || '').toString().trim();
 
-    const compositeKey = (pName && pFlat) ? `${pName}_${pFlat}_${pSport}` : null;
+      const compositeKey = (pName && pFlat) ? `${pName}_${pFlat}_${pSport}` : null;
 
-    if ((pId && seenKeys.has(`id:${pId}`)) || (compositeKey && seenKeys.has(`comp:${compositeKey}`))) {
-      return false;
-    }
-
-    const matchGame = !filterByGameChoice || pSport === activeSport.name.trim().toLowerCase();
-
-    const rawPhase = (p.phase || p.Phase || p['Phase'] || p['phase'] || '').toString().trim();
-    const matchPhase = (() => {
-      if (selectedPhase === 'All Phases') return true;
-      if (!rawPhase) return false;
-      const normRaw = rawPhase.toLowerCase();
-      const normSel = selectedPhase.toLowerCase();
-      if (normRaw === normSel) return true;
-      const selNum = normSel.replace(/\D+/g, '');
-      const rawNum = normRaw.replace(/\D+/g, '');
-      if (selNum && rawNum && selNum === rawNum) return true;
-      return normRaw.includes(normSel) || normSel.includes(normRaw);
-    })();
-
-    const rawCat = (p.category || p.Category || '').toString().trim().toLowerCase();
-    const matchCat = selectedCategory === 'All Categories' || rawCat === selectedCategory.toLowerCase();
-
-    const rawAgeVal = p.age ?? p.Age ?? p.ageGroup ?? p.AgeGroup ?? p['Age Group'] ?? p['Age'] ?? '';
-    const rawAgeStr = rawAgeVal.toString().trim().toLowerCase();
-
-    const matchAge = (() => {
-      if (selectedAgeGroup === 'All Age Groups') return true;
-      if (!rawAgeStr) return false;
-
-      if (rawAgeStr === selectedAgeGroup.trim().toLowerCase()) return true;
-
-      const ageNumMatch = rawAgeStr.match(/\d+/);
-      if (ageNumMatch) {
-        const num = parseInt(ageNumMatch[0], 10);
-        if (selectedAgeGroup === 'Under 12 Kids') return num < 12;
-        if (selectedAgeGroup === '12 - 17 years Teens') return num >= 12 && num <= 17;
-        if (selectedAgeGroup === '18 - 55 years Adults') return num >= 18 && num <= 55;
-        if (selectedAgeGroup === '55+ years Seniors') return num >= 55;
+      if ((pId && seenKeys.has(`id:${pId}`)) || (compositeKey && seenKeys.has(`comp:${compositeKey}`))) {
+        return false;
       }
 
-      if (selectedAgeGroup === 'Under 12 Kids') return rawAgeStr.includes('kids') || rawAgeStr.includes('under 12');
-      if (selectedAgeGroup === '12 - 17 years Teens') return rawAgeStr.includes('teen');
-      if (selectedAgeGroup === '18 - 55 years Adults') return rawAgeStr.includes('adult');
-      if (selectedAgeGroup === '55+ years Seniors') return rawAgeStr.includes('senior');
+      const matchGame = !filterByGameChoice || pSport === activeSport.name.trim().toLowerCase();
 
-      return false;
-    })();
+      const rawPhase = (p.phase || p.Phase || p['Phase'] || p['phase'] || '').toString().trim();
+      const matchPhase = (() => {
+        if (selectedPhase === 'All Phases') return true;
+        if (!rawPhase) return false;
+        const normRaw = rawPhase.toLowerCase();
+        const normSel = selectedPhase.toLowerCase();
+        if (normRaw === normSel) return true;
+        const selNum = normSel.replace(/\D+/g, '');
+        const rawNum = normRaw.replace(/\D+/g, '');
+        if (selNum && rawNum && selNum === rawNum) return true;
+        return normRaw.includes(normSel) || normSel.includes(normRaw);
+      })();
 
-    const matchesAll = matchGame && matchPhase && matchCat && matchAge;
-    if (matchesAll) {
-      if (pId) seenKeys.add(`id:${pId}`);
-      if (compositeKey) seenKeys.add(`comp:${compositeKey}`);
-    }
-    return matchesAll;
-  });
+      const rawCat = (p.category || p.Category || '').toString().trim().toLowerCase();
+      const matchCat = selectedCategory === 'All Categories' || rawCat === selectedCategory.toLowerCase();
+
+      const rawAgeVal = p.age ?? p.Age ?? p.ageGroup ?? p.AgeGroup ?? p['Age Group'] ?? p['Age'] ?? '';
+      const rawAgeStr = rawAgeVal.toString().trim().toLowerCase();
+
+      const matchAge = (() => {
+        if (selectedAgeGroup === 'All Age Groups') return true;
+        if (!rawAgeStr) return false;
+
+        if (rawAgeStr === selectedAgeGroup.trim().toLowerCase()) return true;
+
+        const ageNumMatch = rawAgeStr.match(/\d+/);
+        if (ageNumMatch) {
+          const num = parseInt(ageNumMatch[0], 10);
+          if (selectedAgeGroup === 'Under 12 Kids') return num < 12;
+          if (selectedAgeGroup === '12 - 17 years Teens') return num >= 12 && num <= 17;
+          if (selectedAgeGroup === '18 - 55 years Adults') return num >= 18 && num <= 55;
+          if (selectedAgeGroup === '55+ years Seniors') return num >= 55;
+        }
+
+        if (selectedAgeGroup === 'Under 12 Kids') return rawAgeStr.includes('kids') || rawAgeStr.includes('under 12');
+        if (selectedAgeGroup === '12 - 17 years Teens') return rawAgeStr.includes('teen');
+        if (selectedAgeGroup === '18 - 55 years Adults') return rawAgeStr.includes('adult');
+        if (selectedAgeGroup === '55+ years Seniors') return rawAgeStr.includes('senior');
+
+        return false;
+      })();
+
+      const matchesAll = matchGame && matchPhase && matchCat && matchAge;
+      if (matchesAll) {
+        if (pId) seenKeys.add(`id:${pId}`);
+        if (compositeKey) seenKeys.add(`comp:${compositeKey}`);
+      }
+      return matchesAll;
+    });
+  }, [participants, filterByGameChoice, activeSport.name, selectedPhase, selectedCategory, selectedAgeGroup]);
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0];
@@ -356,7 +398,7 @@ export default function SanviOlympicsPortal() {
         />
       )}
 
-      {/* Official Event Sponsors Banner — 12 Placeholders (3 Rows x 4 Columns Grid) */}
+      {/* Official Event Sponsors Banner — Next.js Image Component Optimized */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
@@ -370,16 +412,23 @@ export default function SanviOlympicsPortal() {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
           {sponsors.map((sponsor) => (
             <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between relative shadow-sm p-3 hover:shadow-md transition">
-              <div className="w-full aspect-square flex items-center justify-center overflow-hidden bg-slate-50 rounded-lg border border-slate-100 p-2 my-auto">
+              <div className="w-full aspect-square flex items-center justify-center overflow-hidden bg-slate-50 rounded-lg border border-slate-100 p-2 my-auto relative">
                 {sponsor.image ? (
-                  <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain rounded-md" />
+                  <Image
+                    src={sponsor.image}
+                    alt={sponsor.title}
+                    width={150}
+                    height={150}
+                    unoptimized={sponsor.image.startsWith('data:')}
+                    className="w-full h-full object-contain rounded-md"
+                  />
                 ) : (
                   <span className="text-xs text-slate-400 font-bold text-center">{sponsor.title}</span>
                 )}
               </div>
               {sponsor.text && (
                 <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100 mt-2">
-                  <marquee className="text-[11px] font-bold text-amber-700">{sponsor.text}</marquee>
+                  <div className="text-[11px] font-bold text-amber-700 animate-pulse text-center">{sponsor.text}</div>
                 </div>
               )}
             </div>
@@ -562,27 +611,31 @@ export default function SanviOlympicsPortal() {
 
                   <div className="w-full aspect-square bg-white border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center relative shadow-inner p-1">
                     {sponsor.image ? (
-                      <img src={sponsor.image} alt={sponsor.title} className="w-full h-full object-contain rounded" />
+                      <Image
+                        src={sponsor.image}
+                        alt={sponsor.title}
+                        width={120}
+                        height={120}
+                        unoptimized={sponsor.image.startsWith('data:')}
+                        className="w-full h-full object-contain rounded"
+                      />
                     ) : (
                       <span className="text-xs text-slate-400 font-medium">No Image Set</span>
                     )}
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-600">Browse Image / GIF</label>
+                    <label className="block text-[10px] font-bold text-slate-600">Browse Image / GIF (Auto-compressed)</label>
                     <input
                       type="file"
                       accept="image/*,.gif"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            const updated = [...sponsors];
-                            updated[index].image = reader.result;
-                            setSponsors(updated);
-                          };
-                          reader.readAsDataURL(file);
+                          const compressedBase64 = await compressSponsorImage(file);
+                          const updated = [...sponsors];
+                          updated[index].image = compressedBase64;
+                          setSponsors(updated);
                         }
                       }}
                       className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
