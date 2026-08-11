@@ -91,10 +91,52 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return `${h} ${ampm}`.replace(' ', '');
   };
 
+  // Find the latest scheduled match date in a given round
+  const getLatestDateFromRound = (round) => {
+    let maxTimestamp = 0;
+    let maxDateObj = new Date('2026-08-23'); // Default fallback to Aug 23, 2026
+
+    if (!round || !round.groups) return maxDateObj;
+
+    round.groups.forEach(grp => {
+      (grp.matches || []).forEach(m => {
+        if (m.scheduledDate) {
+          const iso = parseShortDateToISO(m.scheduledDate);
+          const [y, mMonth, dDay] = iso.split('-').map(Number);
+          const d = new Date(y, mMonth - 1, dDay);
+          if (!isNaN(d.getTime()) && d.getTime() > maxTimestamp) {
+            maxTimestamp = d.getTime();
+            maxDateObj = d;
+          }
+        }
+      });
+    });
+
+    return maxDateObj;
+  };
+
+  // Calculate the Saturday of the next weekend following a given date
+  const getNextWeekendSaturday = (fromDate) => {
+    const d = new Date(fromDate);
+    const day = d.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+    
+    let daysToAdd = 0;
+    if (day === 6) {
+      daysToAdd = 7; // Next Saturday
+    } else if (day === 0) {
+      daysToAdd = 6; // Next Saturday
+    } else {
+      daysToAdd = 6 - day; // Upcoming Saturday
+    }
+
+    d.setDate(d.getDate() + daysToAdd);
+    return d;
+  };
+
   // Standard conflict-free match schedule generator
-  const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15')) => {
-    const slotsPerDay = 6;
-    const parallelCapacity = 3; // Max 3 boards at once
+  const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15'), isRound1 = false) => {
+    let slotsPerDay = 6;
+    let parallelCapacity = 3; // Max 3 boards at once
     const startHour = 11;
     const matchDuration = 1;
 
@@ -109,6 +151,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const playerBId = m.playerB?.id || m.playerB?.regId || m.playerB?.Registration_ID || m.playerB?.name;
 
       while (!assigned) {
+        // Enforce wrapping Round 1 matches within 23 Aug 2026 weekend (Aug 15 + 8 days = Aug 23)
+        if (isRound1 && dayIdx > 8) {
+          parallelCapacity += 2;
+          dayIdx = 0;
+          slotIdx = 0;
+        }
+
         const key = `${dayIdx}_${slotIdx}`;
         if (!slotTracker[key]) {
           slotTracker[key] = { count: 0, players: new Set() };
@@ -150,12 +199,11 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
   // Weekend-by-weekend match schedule generator for 18+ Years Adults
   // Ensures each player plays 2 matches per weekend
-  const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15')) => {
-    const parallelCapacity = 3;
-    const slotsPerDay = 4;
+  const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15'), isRound1 = false) => {
+    let parallelCapacity = 3;
+    let slotsPerDay = 6;
     const startHour = 11;
 
-    // Track match count per player per weekend and slot occupancies
     const weekendTracker = {};
 
     return allMatches.map((m) => {
@@ -168,6 +216,12 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       let finalSlotStr = '';
 
       while (!assigned) {
+        // Enforce wrapping Round 1 within 23 Aug 2026 weekend (Weekend 0 = Aug 15-16, Weekend 1 = Aug 22-23)
+        if (isRound1 && weekendIdx > 1) {
+          parallelCapacity += 2;
+          weekendIdx = 0;
+        }
+
         if (!weekendTracker[weekendIdx]) {
           weekendTracker[weekendIdx] = {
             playerCounts: {},
@@ -481,12 +535,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
 
-    // Weekend scheduling (2 matches/weekend) for 18+ Adults vs standard conflict-free for others
+    // Round 1 starts on Aug 15, 2026 and wraps up within 23 Aug weekend
+    const round1StartDate = new Date('2026-08-15');
     let scheduledMatches;
     if (selectedCategory === '18+ Years Adults') {
-      scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList);
+      scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList, round1StartDate, true);
     } else {
-      scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+      scheduledMatches = buildConflictFreeSchedule(rawMatchesList, round1StartDate, true);
     }
 
     const initialGroups = groupStructures.map(grp => ({
@@ -497,7 +552,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed with schedules)`);
+    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed with schedules completing within 23 Aug weekend)`);
   };
 
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
@@ -683,11 +738,15 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
 
+    // Determine next round start date: Saturday of the NEXT weekend after current round finishes
+    const latestDateInCurrentRound = getLatestDateFromRound(currentRound);
+    const nextRoundStartDate = getNextWeekendSaturday(latestDateInCurrentRound);
+
     let scheduledMatches;
     if (selectedCategory === '18+ Years Adults') {
-      scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList);
+      scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList, nextRoundStartDate, false);
     } else {
-      scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+      scheduledMatches = buildConflictFreeSchedule(rawMatchesList, nextRoundStartDate, false);
     }
 
     const nextGroups = groupStructures.map(grp => ({
@@ -698,7 +757,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const updatedRounds = [...rounds, { roundName: nextRoundName, groups: nextGroups }];
     updateCurrentCategoryState(updatedRounds, rounds.length);
-    alert(`Successfully advanced ${uniqueQualified.length} unique players to ${nextRoundName} for category ${selectedCategory}!`);
+    alert(`Successfully advanced ${uniqueQualified.length} unique players to ${nextRoundName} for category ${selectedCategory}! Matches start on next weekend (${formatDateShort(nextRoundStartDate)}).`);
   };
 
   const verifyAdminPassword = (e) => {
@@ -728,7 +787,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
-          <p className="text-xs text-slate-400">Independent category tournaments, group rules, weekend scheduling (2 matches/weekend for adults) & adhoc overrides.</p>
+          <p className="text-xs text-slate-400">Independent category tournaments, group rules, sequential weekend scheduling & adhoc overrides.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
