@@ -327,6 +327,37 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     onUpdateSportState({ categoryRounds: updatedMap, playerSchedules: updatedPlayerSchedules });
   };
 
+  // Feature: Delete active tournament for selected category to start fresh
+  const handleDeleteTournament = () => {
+    const confirmDelete = window.confirm(
+      `⚠️ Are you sure you want to DELETE the active tournament for category "${selectedCategory}"?\n\nThis will completely clear all rounds, group fixtures, match results, and scheduled times for this category so you can regenerate fresh conflict-free schedules.`
+    );
+    if (!confirmDelete) return;
+
+    const updatedMap = {
+      ...categoryRoundsMap,
+      [selectedCategory]: {
+        rounds: [],
+        currentRoundIndex: 0,
+      }
+    };
+
+    // Rebuild player schedules map and purge entries specifically belonging to this category
+    const updatedPlayerSchedules = buildPlayerSchedulesMap(updatedMap);
+    Object.keys(updatedPlayerSchedules).forEach(key => {
+      if (updatedPlayerSchedules[key]?.category === selectedCategory) {
+        delete updatedPlayerSchedules[key];
+      }
+    });
+
+    onUpdateSportState({
+      categoryRounds: updatedMap,
+      playerSchedules: updatedPlayerSchedules,
+    });
+
+    alert(`Tournament for "${selectedCategory}" has been deleted successfully! You can now click "Start Round 1" to create a fresh tournament schedule.`);
+  };
+
   const handleInitializeRound1 = () => {
     if (filteredParticipants.length < 2) {
       alert(`Not enough available participants in category "${selectedCategory}" to start Round 1.`);
@@ -657,9 +688,17 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             </button>
           </div>
 
-          {rounds.length === 0 && (
+          {rounds.length === 0 ? (
             <button onClick={handleInitializeRound1} className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow">
               🚀 Start Round 1 ({selectedCategory})
+            </button>
+          ) : (
+            <button
+              onClick={handleDeleteTournament}
+              className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3.5 py-2 rounded-xl text-xs shadow transition flex items-center gap-1.5"
+              title="Delete active tournament and reset schedules for this category"
+            >
+              🗑️ Delete Tournament
             </button>
           )}
         </div>
@@ -691,9 +730,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
               <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">Chess Participants & Assigned Schedules ({selectedCategory})</h4>
               <p className="text-[11px] text-slate-400">Each registered player's match date and time slot are displayed below in real-time.</p>
             </div>
-            {rounds.length === 0 && (
+            {rounds.length === 0 ? (
               <button onClick={handleInitializeRound1} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-2 rounded-xl text-xs shadow">
                 🚀 Start Round 1
+              </button>
+            ) : (
+              <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow">
+                🗑️ Delete Tournament
               </button>
             )}
           </div>
@@ -765,15 +808,21 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                   <p className="text-[11px] text-slate-400 mt-0.5">Click directly on any schedule badge below to customize its date and time slot.</p>
                 </div>
                 
-                {!isGrandFinale ? (
-                  <button onClick={handleAdvanceToNextRound} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs shadow">
-                    ⚡ Regroup & Advance Qualified Players to Next Round
+                <div className="flex gap-2 items-center">
+                  <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow">
+                    🗑️ Delete Tournament
                   </button>
-                ) : (
-                  <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-xl font-black border border-amber-500/20">
-                    🏆 Grand Finale Stage ({selectedCategory}) — Tournament Conclusion
-                  </span>
-                )}
+
+                  {!isGrandFinale ? (
+                    <button onClick={handleAdvanceToNextRound} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs shadow">
+                      ⚡ Regroup & Advance Qualified Players to Next Round
+                    </button>
+                  ) : (
+                    <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-xl font-black border border-amber-500/20">
+                      🏆 Grand Finale Stage ({selectedCategory}) — Tournament Conclusion
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
