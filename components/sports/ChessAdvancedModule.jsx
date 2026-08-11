@@ -1,22 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function ChessAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
-  // Strict, cleaned list of allowed categories
+  // Strict, cleaned list of allowed categories as requested
   const categories = [
-    'Open',
     'Under 8 Years Kids',
     'Under 12 Years Kids',
     '12 - 17 Years Teens',
-    '18 - 55 Years Adults Phase 1 Male',
-    '18 - 55 Years Adults Phase 2 Male',
-    '18 - 55 Years Adults Phase 1 Female',
-    '18 - 55 Years Adults Phase 2 Female',
-    'Senior Citizens 55+ years'
+    '18 - 55 Years Adults',
+    '55+ Seniors'
   ];
 
-  const [selectedCategory, setSelectedCategory] = useState('Open');
+  const [selectedCategory, setSelectedCategory] = useState('Under 12 Years Kids');
   const [chessTab, setChessTab] = useState('participants'); // Default to participants view so schedules are visible
   
   // Per-category rounds and round indices stored in sportState.categoryRounds
@@ -25,8 +21,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const rounds = currentCategoryData.rounds;
   const currentRoundIndex = currentCategoryData.currentRoundIndex;
 
-  const [advancementCount, setAdvancementCount] = useState(2);
-  const [groupSize, setGroupSize] = useState(4);
+  const [advancementCount, setAdvancementCount] = useState(3);
+  const [groupSize, setGroupSize] = useState(5);
   
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
@@ -35,6 +31,17 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [editingMatchScheduleId, setEditingMatchScheduleId] = useState(null);
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
+
+  // Update defaults based on selected category (e.g. Under 12 Kids -> 5 per group, top 3 advance)
+  useEffect(() => {
+    if (selectedCategory === 'Under 12 Years Kids') {
+      setAdvancementCount(3);
+      setGroupSize(5);
+    } else {
+      setAdvancementCount(2);
+      setGroupSize(4);
+    }
+  }, [selectedCategory]);
 
   // Helper to format Date object or Date string to '15Aug26' style
   const formatDateShort = (dateObj) => {
@@ -85,14 +92,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return `${h} ${ampm}`.replace(' ', '');
   };
 
-  // Conflict-free match schedule generator (Prevents player time slot overlaps)
+  // Standard conflict-free match schedule generator
   const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15')) => {
     const slotsPerDay = 6;
     const parallelCapacity = 3; // Max 3 boards at once
     const startHour = 11;
     const matchDuration = 1;
 
-    // Track usage per slot: key = "dayIdx_slotIdx" -> { count: number, players: Set }
     const slotTracker = {};
 
     return allMatches.map((m) => {
@@ -140,6 +146,78 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           dayIdx += 1;
         }
       }
+    });
+  };
+
+  // Weekend-by-weekend match schedule generator for 18 - 55 Years Adults
+  // Ensures each player plays 1 match per weekend
+  const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15')) => {
+    const parallelCapacity = 3;
+    const slotsPerDay = 4;
+    const startHour = 11;
+
+    // weekendTracker[weekendIdx] = { players: Set of player IDs, slots: { "dayOffset_slotIdx": count } }
+    const weekendTracker = {};
+
+    return allMatches.map((m) => {
+      const playerAId = m.playerA?.id || m.playerA?.regId || m.playerA?.Registration_ID || m.playerA?.name;
+      const playerBId = m.playerB?.id || m.playerB?.regId || m.playerB?.Registration_ID || m.playerB?.name;
+
+      let weekendIdx = 0;
+      let assigned = false;
+      let finalDateStr = '';
+      let finalSlotStr = '';
+
+      while (!assigned) {
+        if (!weekendTracker[weekendIdx]) {
+          weekendTracker[weekendIdx] = {
+            players: new Set(),
+            slots: {}
+          };
+        }
+
+        const wData = weekendTracker[weekendIdx];
+        const hasConflict = (playerAId && wData.players.has(playerAId)) || (playerBId && wData.players.has(playerBId));
+
+        if (!hasConflict) {
+          // Try scheduling on Saturday (dayOffset = 0) or Sunday (dayOffset = 1)
+          for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
+            for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
+              const slotKey = `${dayOffset}_${slotIdx}`;
+              const currentCount = wData.slots[slotKey] || 0;
+
+              if (currentCount < parallelCapacity) {
+                wData.slots[slotKey] = currentCount + 1;
+                if (playerAId) wData.players.add(playerAId);
+                if (playerBId) wData.players.add(playerBId);
+
+                const matchDate = new Date(baseStart);
+                matchDate.setDate(matchDate.getDate() + (weekendIdx * 7) + dayOffset);
+                finalDateStr = formatDateShort(matchDate);
+
+                const slotStartHour = startHour + slotIdx;
+                const slotEndHour = slotStartHour + 1;
+                finalSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
+
+                assigned = true;
+                break;
+              }
+            }
+            if (assigned) break;
+          }
+        }
+
+        if (!assigned) {
+          weekendIdx++;
+        }
+      }
+
+      return {
+        ...m,
+        scheduledDate: finalDateStr,
+        scheduledTimeSlot: finalSlotStr,
+        fullScheduleText: `Date:${finalDateStr} ${finalSlotStr}`,
+      };
     });
   };
 
@@ -217,13 +295,11 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
   // Filter participants specifically for selected category
   const rawFiltered = (participants || []).filter(p => {
-    if (!selectedCategory || selectedCategory === 'Open' || selectedCategory === 'All') return true;
+    if (!selectedCategory || selectedCategory === 'All') return true;
 
     const catStr = selectedCategory.toLowerCase();
     const pCat = (p.category || p.Category || '').toString().toLowerCase();
     const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
-    const pGender = (p.gender || p.Gender || '').toString().toLowerCase();
-    const pPhase = (p.phase || p.Phase || '').toString().toLowerCase();
     const pAge = (p.age || p.Age || '').toString();
     const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
 
@@ -236,27 +312,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       return (numAge >= 8 && numAge < 12) || pCat.includes('under 12') || pAgeGroup.includes('under 12');
     }
     if (catStr.includes('12 - 17') || catStr.includes('teens')) {
-      return (numAge >= 12 && numAge <= 17) || pCat.includes('teen') || pAgeGroup.includes('teen');
+      return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17') || pCat.includes('teen') || pAgeGroup.includes('teen');
     }
     if (catStr.includes('18 - 55') || catStr.includes('adults')) {
-      const matchAgeRange = (numAge >= 18 && numAge <= 55) || pCat.includes('adult') || pAgeGroup.includes('adult') || numAge === 0;
-      const isPhase1 = catStr.includes('phase 1');
-      const isPhase2 = catStr.includes('phase 2');
-      const isMale = catStr.includes('male') && !catStr.includes('female');
-      const isFemale = catStr.includes('female');
-
-      let matchPhase = true;
-      if (isPhase1) matchPhase = pPhase.includes('1') || pPhase.includes('phase 1') || pCat.includes('phase 1') || !pPhase;
-      if (isPhase2) matchPhase = pPhase.includes('2') || pPhase.includes('phase 2') || pCat.includes('phase 2');
-
-      let matchGender = true;
-      if (isMale) matchGender = pGender.includes('male') || pGender === 'm' || pCat.includes('male');
-      if (isFemale) matchGender = pGender.includes('female') || pGender === 'f' || pCat.includes('female');
-
-      return matchAgeRange && matchPhase && matchGender;
+      return (numAge >= 18 && numAge <= 55) || pCat.includes('adult') || pAgeGroup.includes('adult') || numAge === 0;
     }
     if (catStr.includes('55+') || catStr.includes('senior')) {
-      return numAge >= 55 || pCat.includes('senior') || pCat.includes('veteran');
+      return numAge >= 55 || pCat.includes('senior') || pCat.includes('veteran') || pAgeGroup.includes('senior');
     }
 
     return pCat.includes(catStr) || pAgeGroup.includes(catStr);
@@ -330,7 +392,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   // Feature: Delete active tournament for selected category to start fresh
   const handleDeleteTournament = () => {
     const confirmDelete = window.confirm(
-      `⚠️ Are you sure you want to DELETE the active tournament for category "${selectedCategory}"?\n\nThis will completely clear all rounds, group fixtures, match results, and scheduled times for this category so you can regenerate fresh conflict-free schedules.`
+      `⚠️ Are you sure you want to DELETE the active tournament for category "${selectedCategory}"?\n\nThis will completely clear all rounds, group fixtures, match results, and scheduled times for this category so you can regenerate fresh schedules.`
     );
     if (!confirmDelete) return;
 
@@ -342,7 +404,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       }
     };
 
-    // Rebuild player schedules map and purge entries specifically belonging to this category
     const updatedPlayerSchedules = buildPlayerSchedulesMap(updatedMap);
     Object.keys(updatedPlayerSchedules).forEach(key => {
       if (updatedPlayerSchedules[key]?.category === selectedCategory) {
@@ -369,8 +430,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const groupStructures = [];
     let groupCharCode = 65;
 
-    // Rule: If category has 5 or fewer players, create ONLY 1 single group
-    const effectiveGroupSize = shuffled.length <= 5 ? shuffled.length : groupSize;
+    // Rule: Under 12 Kids = 5 players per group. Other categories <= 5 players = 1 group.
+    const effectiveGroupSize = selectedCategory === 'Under 12 Years Kids' ? 5 : (shuffled.length <= 5 ? shuffled.length : groupSize);
 
     for (let i = 0; i < shuffled.length; i += effectiveGroupSize) {
       const groupPlayers = shuffled.slice(i, i + effectiveGroupSize);
@@ -409,8 +470,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
 
-    // Conflict-free time slot assignment across all matches
-    const scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+    // Weekend scheduling for 18 - 55 Adults vs standard conflict-free for others
+    let scheduledMatches;
+    if (selectedCategory === '18 - 55 Years Adults') {
+      scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList);
+    } else {
+      scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+    }
 
     const initialGroups = groupStructures.map(grp => ({
       groupName: grp.groupName,
@@ -420,7 +486,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed with conflict-free schedules)`);
+    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed with schedules)`);
   };
 
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
@@ -537,10 +603,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     currentRound.groups.forEach(grp => {
       const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
       
-      // Rule: If group has less than 4 persons, ONLY 1 winner advances.
-      // Otherwise (>= 4 players), advance advancementCount (Top 2 / Top 3).
-      const effectiveAdvancement = grp.standings.length < 4 ? 1 : advancementCount;
-      const topN = sorted.slice(0, effectiveAdvancement);
+      // Rule: Under 12 Kids = Top 3 advance. Small groups < 4 = Top 1 advances. Otherwise = advancementCount.
+      const effectiveAdv = selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount);
+      const topN = sorted.slice(0, effectiveAdv);
       qualifiedPlayers.push(...topN);
     });
 
@@ -607,8 +672,12 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
 
-    // Conflict-free time slot assignment across all next-round matches
-    const scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+    let scheduledMatches;
+    if (selectedCategory === '18 - 55 Years Adults') {
+      scheduledMatches = buildAdultsWeekendSchedule(rawMatchesList);
+    } else {
+      scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+    }
 
     const nextGroups = groupStructures.map(grp => ({
       groupName: grp.groupName,
@@ -648,7 +717,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
-          <p className="text-xs text-slate-400">Independent category tournaments, single group rules for 5 players, round progression & participant schedule tiles.</p>
+          <p className="text-xs text-slate-400">Independent category tournaments, group rules, weekend scheduling for adults & adhoc overrides.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -666,8 +735,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs">
             <span className="text-slate-400 font-bold">Top N Advance:</span>
             <select value={advancementCount} onChange={(e) => setAdvancementCount(Number(e.target.value))} className="bg-slate-900 text-amber-400 font-bold rounded p-1 outline-none">
-              <option value={2}>Top 2</option>
               <option value={3}>Top 3</option>
+              <option value={2}>Top 2</option>
               <option value={1}>Top 1</option>
             </select>
           </div>
@@ -827,14 +896,14 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {currentRound.groups.map((grp, gIdx) => {
-                  const effectiveAdv = grp.standings.length < 4 ? 1 : advancementCount;
+                  const effectiveAdv = selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount);
 
                   return (
                     <div key={grp.groupName} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
                       <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Players)</h5>
                         <span className="text-[10px] text-slate-400">
-                          {grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`}
+                          {selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`)}
                         </span>
                       </div>
 
