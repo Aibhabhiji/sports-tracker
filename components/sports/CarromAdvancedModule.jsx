@@ -25,7 +25,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
   const currentTeams = categoryTeamsMap[selectedCategory] || [];
 
   const [advancementCount, setAdvancementCount] = useState(2);
-  const [groupSize, setGroupSize] = useState(4); // 4 teams per group
+  const [groupSize, setGroupSize] = useState(4); // Default 4 teams per group
 
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
@@ -455,8 +455,11 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const groupStructures = [];
       let groupCharCode = 65;
 
-      for (let i = 0; i < shuffledTeams.length; i += groupSize) {
-        const groupTeams = shuffledTeams.slice(i, i + groupSize);
+      // Group sizing rule: If exactly 5 teams/players exist in the category, create 1 single group of 5
+      const effectiveGroupSize = shuffledTeams.length === 5 ? 5 : groupSize;
+
+      for (let i = 0; i < shuffledTeams.length; i += effectiveGroupSize) {
+        const groupTeams = shuffledTeams.slice(i, i + effectiveGroupSize);
         const groupName = `Group ${String.fromCharCode(groupCharCode++)}`;
 
         const standings = groupTeams.map(t => ({
@@ -625,7 +628,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       let qualifiedTeams = [];
       currentRound.groups.forEach(grp => {
         const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-        const topN = sorted.slice(0, advancementCount);
+        // Rule: If group has less than 4 teams/players, only 1 winner advances from that group
+        const groupAdvancementLimit = grp.standings.length < 4 ? 1 : advancementCount;
+        const topN = sorted.slice(0, groupAdvancementLimit);
         qualifiedTeams.push(...topN);
       });
 
@@ -650,7 +655,11 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const rawMatchesList = [];
       const groupStructures = [];
       let groupCharCode = 65;
-      const currentGroupSize = uniqueQualified.length <= 4 ? uniqueQualified.length : groupSize;
+
+      // Group size logic: If 5 qualified teams exist, put them in 1 single group
+      const currentGroupSize = uniqueQualified.length === 5 
+        ? 5 
+        : (uniqueQualified.length <= 4 ? uniqueQualified.length : groupSize);
 
       for (let i = 0; i < shuffled.length; i += currentGroupSize) {
         const groupTeams = shuffled.slice(i, i + currentGroupSize);
@@ -925,7 +934,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
                 {!isGrandFinale ? (
                   <button onClick={handleAdvanceToNextRound} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs shadow">
-                    ⚡ Regroup & Advance Top {advancementCount} Teams to Next Round
+                    ⚡ Regroup & Advance Qualified Teams to Next Round
                   </button>
                 ) : (
                   <span className="text-xs bg-amber-500/10 text-amber-400 px-3 py-1.5 rounded-xl font-black border border-amber-500/20">
@@ -935,164 +944,169 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {currentRound.groups.map((grp, gIdx) => (
-                  <div key={grp.groupName} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
-                    <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                      <h5 className="font-black text-amber-400 text-xs">{grp.groupName}</h5>
-                      <span className="text-[10px] text-slate-400">Team Standings</span>
-                    </div>
+                {currentRound.groups.map((grp, gIdx) => {
+                  const groupAdvancementLimit = grp.standings.length < 4 ? 1 : advancementCount;
+                  return (
+                    <div key={grp.groupName} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                        <h5 className="font-black text-amber-400 text-xs">{grp.groupName}</h5>
+                        <span className="text-[10px] text-slate-400">
+                          {grp.standings.length < 4 ? 'Top 1 Team Advances' : `Top ${groupAdvancementLimit} Teams Advance`}
+                        </span>
+                      </div>
 
-                    <table className="w-full text-left text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-800 text-slate-400">
-                          <th className="pb-2">Rank & Team</th>
-                          <th className="pb-2">Players</th>
-                          <th className="pb-2">P</th>
-                          <th className="pb-2">W</th>
-                          <th className="pb-2">D</th>
-                          <th className="pb-2">L</th>
-                          <th className="pb-2 text-amber-400 font-black">Pts</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60">
-                        {grp.standings.sort((a, b) => b.points - a.points || b.won - a.won).map((s, rank) => (
-                          <tr key={s.id} className={rank < advancementCount ? 'bg-emerald-950/20' : ''}>
-                            <td className="py-2.5 font-bold text-slate-100 flex items-center gap-2">
-                              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${rank < advancementCount ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
-                                {rank + 1}
-                              </span>
-                              {s.name}
-                            </td>
-                            <td className="py-2.5 text-slate-400 text-[10px]">
-                              {s.player1?.name} & {s.player2?.name}
-                            </td>
-                            <td className="py-2.5 text-slate-300">{s.played}</td>
-                            <td className="py-2.5 text-emerald-400">{s.won}</td>
-                            <td className="py-2.5 text-yellow-400">{s.drawn}</td>
-                            <td className="py-2.5 text-rose-400">{s.lost}</td>
-                            <td className="py-2.5 font-black text-amber-300">{s.points}</td>
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-800 text-slate-400">
+                            <th className="pb-2">Rank & Team</th>
+                            <th className="pb-2">Players</th>
+                            <th className="pb-2">P</th>
+                            <th className="pb-2">W</th>
+                            <th className="pb-2">D</th>
+                            <th className="pb-2">L</th>
+                            <th className="pb-2 text-amber-400 font-black">Pts</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/60">
+                          {grp.standings.sort((a, b) => b.points - a.points || b.won - a.won).map((s, rank) => (
+                            <tr key={s.id} className={rank < groupAdvancementLimit ? 'bg-emerald-950/20' : ''}>
+                              <td className="py-2.5 font-bold text-slate-100 flex items-center gap-2">
+                                <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${rank < groupAdvancementLimit ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                                  {rank + 1}
+                                </span>
+                                {s.name}
+                              </td>
+                              <td className="py-2.5 text-slate-400 text-[10px]">
+                                {s.player1?.name} & {s.player2?.name}
+                              </td>
+                              <td className="py-2.5 text-slate-300">{s.played}</td>
+                              <td className="py-2.5 text-emerald-400">{s.won}</td>
+                              <td className="py-2.5 text-yellow-400">{s.drawn}</td>
+                              <td className="py-2.5 text-rose-400">{s.lost}</td>
+                              <td className="py-2.5 font-black text-amber-300">{s.points}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
 
-                    {/* Team Match Scorekeeping Grid */}
-                    <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Team Match Score Grid & Schedule</span>
-                      {grp.matches.map((m) => (
-                        <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
-                          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                            <div className="space-y-1">
-                              <div className="text-xs font-bold text-slate-200">
-                                <span className="text-amber-300">{m.playerA.name}</span> <span className="text-slate-500 font-normal">vs</span> <span className="text-amber-300">{m.playerB.name}</span>
-                              </div>
+                      {/* Team Match Scorekeeping Grid */}
+                      <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Team Match Score Grid & Schedule</span>
+                        {grp.matches.map((m) => (
+                          <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                              <div className="space-y-1">
+                                <div className="text-xs font-bold text-slate-200">
+                                  <span className="text-amber-300">{m.playerA.name}</span> <span className="text-slate-500 font-normal">vs</span> <span className="text-amber-300">{m.playerB.name}</span>
+                                </div>
 
-                              {/* Schedule Badge */}
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <div
-                                  onClick={() => {
-                                    verifyAdminAndExecute(() => {
-                                      setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
-                                      setTempScheduleDate(parseShortDateToISO(m.scheduledDate));
-                                      setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
-                                    });
-                                  }}
-                                  className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
-                                  title="Click to edit schedule"
-                                >
-                                  <span>📅 Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})</span>
-                                  <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-black">✏️ Edit</span>
+                                {/* Schedule Badge */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <div
+                                    onClick={() => {
+                                      verifyAdminAndExecute(() => {
+                                        setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
+                                        setTempScheduleDate(parseShortDateToISO(m.scheduledDate));
+                                        setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
+                                      });
+                                    }}
+                                    className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
+                                    title="Click to edit schedule"
+                                  >
+                                    <span>📅 Date:{m.scheduledDate} {m.scheduledTimeSlot} ({currentRound.roundName})</span>
+                                    <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-black">✏️ Edit</span>
+                                  </div>
                                 </div>
                               </div>
+
+                              {m.isLocked && !isAdminUnlocked ? (
+                                <div className="flex items-center gap-3">
+                                  <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">
+                                    Result: {m.scoreA} - {m.scoreB}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500">Locked 🔒</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={m.scoreA !== null ? m.scoreA : ''}
+                                    onChange={(e) => {
+                                      const valA = Number(e.target.value);
+                                      const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
+                                      updateMatchScore(gIdx, m.id, valA, valB);
+                                    }}
+                                    className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
+                                  >
+                                    <option value="" disabled>Team A Score</option>
+                                    <option value={1}>1 (Win)</option>
+                                    <option value={0.5}>0.5 (Draw)</option>
+                                    <option value={0}>0 (Loss)</option>
+                                  </select>
+
+                                  <span className="text-slate-500 font-bold">-</span>
+
+                                  <select
+                                    value={m.scoreB !== null ? m.scoreB : ''}
+                                    onChange={(e) => {
+                                      const valB = Number(e.target.value);
+                                      const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
+                                      updateMatchScore(gIdx, m.id, valA, valB);
+                                    }}
+                                    className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
+                                  >
+                                    <option value="" disabled>Team B Score</option>
+                                    <option value={1}>1 (Win)</option>
+                                    <option value={0.5}>0.5 (Draw)</option>
+                                    <option value={0}>0 (Loss)</option>
+                                  </select>
+                                </div>
+                              )}
                             </div>
 
-                            {m.isLocked && !isAdminUnlocked ? (
-                              <div className="flex items-center gap-3">
-                                <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">
-                                  Result: {m.scoreA} - {m.scoreB}
-                                </span>
-                                <span className="text-[10px] text-slate-500">Locked 🔒</span>
-                              </div>
-                            ) : (
-                              <div className="flex items-center gap-2">
-                                <select
-                                  value={m.scoreA !== null ? m.scoreA : ''}
-                                  onChange={(e) => {
-                                    const valA = Number(e.target.value);
-                                    const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
-                                    updateMatchScore(gIdx, m.id, valA, valB);
-                                  }}
-                                  className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
-                                >
-                                  <option value="" disabled>Team A Score</option>
-                                  <option value={1}>1 (Win)</option>
-                                  <option value={0.5}>0.5 (Draw)</option>
-                                  <option value={0}>0 (Loss)</option>
-                                </select>
-
-                                <span className="text-slate-500 font-bold">-</span>
-
-                                <select
-                                  value={m.scoreB !== null ? m.scoreB : ''}
-                                  onChange={(e) => {
-                                    const valB = Number(e.target.value);
-                                    const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
-                                    updateMatchScore(gIdx, m.id, valA, valB);
-                                  }}
-                                  className="bg-slate-900 text-amber-400 font-bold text-xs p-1.5 rounded border border-slate-800 outline-none"
-                                >
-                                  <option value="" disabled>Team B Score</option>
-                                  <option value={1}>1 (Win)</option>
-                                  <option value={0.5}>0.5 (Draw)</option>
-                                  <option value={0}>0 (Loss)</option>
-                                </select>
+                            {/* Schedule Editor Drawer */}
+                            {editingMatchScheduleId === m.id && (
+                              <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3 shadow-xl">
+                                <div className="flex justify-between items-center">
+                                  <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">✏️ Custom Schedule Override for Match</div>
+                                  <button onClick={() => setEditingMatchScheduleId(null)} className="text-slate-400 hover:text-white text-xs font-bold">✕ Close</button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="text-slate-400 text-[10px] block mb-1">Select Date:</label>
+                                    <input
+                                      type="date"
+                                      value={tempScheduleDate}
+                                      onChange={(e) => setTempScheduleDate(e.target.value)}
+                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="text-slate-400 text-[10px] block mb-1">Time Slot:</label>
+                                    <input
+                                      type="text"
+                                      value={tempScheduleTime}
+                                      onChange={(e) => setTempScheduleTime(e.target.value)}
+                                      placeholder="11 AM to 12 PM"
+                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                                    />
+                                  </div>
+                                  <div className="flex items-end">
+                                    <button
+                                      onClick={() => handleSaveIndividualSchedule(gIdx, m.id)}
+                                      className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-1.5 rounded text-xs shadow"
+                                    >
+                                      Save Schedule
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             )}
                           </div>
-
-                          {/* Schedule Editor Drawer */}
-                          {editingMatchScheduleId === m.id && (
-                            <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3 shadow-xl">
-                              <div className="flex justify-between items-center">
-                                <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">✏️ Custom Schedule Override for Match</div>
-                                <button onClick={() => setEditingMatchScheduleId(null)} className="text-slate-400 hover:text-white text-xs font-bold">✕ Close</button>
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <div>
-                                  <label className="text-slate-400 text-[10px] block mb-1">Select Date:</label>
-                                  <input
-                                    type="date"
-                                    value={tempScheduleDate}
-                                    onChange={(e) => setTempScheduleDate(e.target.value)}
-                                    className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-slate-400 text-[10px] block mb-1">Time Slot:</label>
-                                  <input
-                                    type="text"
-                                    value={tempScheduleTime}
-                                    onChange={(e) => setTempScheduleTime(e.target.value)}
-                                    placeholder="11 AM to 12 PM"
-                                    className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
-                                  />
-                                </div>
-                                <div className="flex items-end">
-                                  <button
-                                    onClick={() => handleSaveIndividualSchedule(gIdx, m.id)}
-                                    className="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-1.5 rounded text-xs shadow"
-                                  >
-                                    Save Schedule
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* GRAND FINALE WINNER CELEBRATION BOX */}
                 {isGrandFinale && (
