@@ -36,12 +36,46 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
 
-  // Helper to format Date to '15Aug26' style
+  // Helper to format Date object or Date string to '15Aug26' style
   const formatDateShort = (dateObj) => {
-    const day = String(dateObj.getDate()).padStart(2, '0');
-    const month = dateObj.toLocaleString('en-US', { month: 'short' });
-    const year = String(dateObj.getFullYear()).slice(-2);
+    const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
+    if (isNaN(d.getTime())) return '15Aug26';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = d.toLocaleString('en-US', { month: 'short' });
+    const year = String(d.getFullYear()).slice(-2);
     return `${day}${month}${year}`;
+  };
+
+  // Helper to convert '15Aug26' to ISO date string 'YYYY-MM-DD' for <input type="date">
+  const parseShortDateToISO = (dateStr) => {
+    if (!dateStr) return '2026-08-15';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+
+    const match = dateStr.match(/^(\d{1,2})\s*([A-Za-z]{3})\s*(\d{2,4})$/);
+    if (match) {
+      const day = match[1].padStart(2, '0');
+      const monthStr = match[2];
+      const yearStr = match[3].length === 2 ? `20${match[3]}` : match[3];
+      const months = { jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06', jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12' };
+      const month = months[monthStr.toLowerCase()] || '08';
+      return `${yearStr}-${month}-${day}`;
+    }
+    return '2026-08-15';
+  };
+
+  // Helper to convert ISO date string 'YYYY-MM-DD' to short date format '15Aug26'
+  const formatDateShortFromISO = (isoStr) => {
+    if (!isoStr) return '15Aug26';
+    const parts = isoStr.split('-');
+    if (parts.length === 3) {
+      const year = parts[0].slice(-2);
+      const monthIndex = parseInt(parts[1], 10) - 1;
+      const day = parts[2].padStart(2, '0');
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const month = monthNames[monthIndex] || 'Aug';
+      return `${day}${month}${year}`;
+    }
+    return '15Aug26';
   };
 
   // Helper to format Hour (24h to 12h AM/PM string)
@@ -51,7 +85,65 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return `${h} ${ampm}`.replace(' ', '');
   };
 
-  // Initial Auto-Schedule for Round 1
+  // Conflict-free match schedule generator (Prevents player time slot overlaps)
+  const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15')) => {
+    const slotsPerDay = 6;
+    const parallelCapacity = 3; // Max 3 boards at once
+    const startHour = 11;
+    const matchDuration = 1;
+
+    // Track usage per slot: key = "dayIdx_slotIdx" -> { count: number, players: Set }
+    const slotTracker = {};
+
+    return allMatches.map((m) => {
+      let dayIdx = 0;
+      let slotIdx = 0;
+      let assigned = false;
+
+      const playerAId = m.playerA?.id || m.playerA?.regId || m.playerA?.Registration_ID || m.playerA?.name;
+      const playerBId = m.playerB?.id || m.playerB?.regId || m.playerB?.Registration_ID || m.playerB?.name;
+
+      while (!assigned) {
+        const key = `${dayIdx}_${slotIdx}`;
+        if (!slotTracker[key]) {
+          slotTracker[key] = { count: 0, players: new Set() };
+        }
+
+        const currentSlot = slotTracker[key];
+        const hasConflict = (playerAId && currentSlot.players.has(playerAId)) || (playerBId && currentSlot.players.has(playerBId));
+
+        if (currentSlot.count < parallelCapacity && !hasConflict) {
+          currentSlot.count += 1;
+          if (playerAId) currentSlot.players.add(playerAId);
+          if (playerBId) currentSlot.players.add(playerBId);
+
+          const currentDate = new Date(startD);
+          currentDate.setDate(currentDate.getDate() + dayIdx);
+          const dateStr = formatDateShort(currentDate);
+
+          const slotStartHour = startHour + (slotIdx * matchDuration);
+          const slotEndHour = slotStartHour + matchDuration;
+          const timeSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
+
+          assigned = true;
+          return {
+            ...m,
+            scheduledDate: dateStr,
+            scheduledTimeSlot: timeSlotStr,
+            fullScheduleText: `Date:${dateStr} ${timeSlotStr}`,
+          };
+        }
+
+        slotIdx += 1;
+        if (slotIdx >= slotsPerDay) {
+          slotIdx = 0;
+          dayIdx += 1;
+        }
+      }
+    });
+  };
+
+  // Initial Auto-Schedule Fallback
   const calculateInitialMatchSchedule = (matchIndex) => {
     const startD = new Date('2026-08-15');
     const startHour = 11;
@@ -103,6 +195,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
               if (player.id) schedulesMap[player.id] = scheduleEntry;
               if (player.regId) schedulesMap[player.regId] = scheduleEntry;
               if (player.Registration_ID) schedulesMap[player.Registration_ID] = scheduleEntry;
+              if (player.name) schedulesMap[player.name.trim().toLowerCase()] = scheduleEntry;
 
               const origP = (participants || []).find(p => p.name?.trim().toLowerCase() === player.name?.trim().toLowerCase());
               if (origP) {
@@ -191,6 +284,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     if (pid && sportState?.playerSchedules?.[pid]) {
       return sportState.playerSchedules[pid];
     }
+    if (normName && sportState?.playerSchedules?.[normName]) {
+      return sportState.playerSchedules[normName];
+    }
 
     for (const r of rounds) {
       for (const g of r.groups) {
@@ -238,9 +334,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
 
     const shuffled = [...filteredParticipants].sort(() => 0.5 - Math.random());
-    const initialGroups = [];
+    const rawMatchesList = [];
+    const groupStructures = [];
     let groupCharCode = 65;
-    let globalMatchCounter = 0;
 
     // Rule: If category has 5 or fewer players, create ONLY 1 single group
     const effectiveGroupSize = shuffled.length <= 5 ? shuffled.length : groupSize;
@@ -262,31 +358,38 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         points: 0,
       }));
 
-      const matches = [];
+      const groupMatches = [];
       for (let x = 0; x < standings.length; x++) {
         for (let y = x + 1; y < standings.length; y++) {
-          const sched = calculateInitialMatchSchedule(globalMatchCounter++);
-
-          matches.push({
+          const matchObj = {
             id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
+            groupName,
             playerA: standings[x],
             playerB: standings[y],
             scoreA: null,
             scoreB: null,
             isLocked: false,
-            scheduledDate: sched.scheduledDate,
-            scheduledTimeSlot: sched.scheduledTimeSlot,
-            fullScheduleText: sched.fullScheduleText,
-          });
+          };
+          groupMatches.push(matchObj);
+          rawMatchesList.push(matchObj);
         }
       }
 
-      initialGroups.push({ groupName, standings, matches });
+      groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
+
+    // Conflict-free time slot assignment across all matches
+    const scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+
+    const initialGroups = groupStructures.map(grp => ({
+      groupName: grp.groupName,
+      standings: grp.standings,
+      matches: scheduledMatches.filter(m => grp.matchIds.includes(m.id))
+    }));
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed)`);
+    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed with conflict-free schedules)`);
   };
 
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
@@ -295,7 +398,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       return;
     }
 
-    const formattedDate = formatDateShort(new Date(tempScheduleDate));
+    const formattedDate = formatDateShortFromISO(tempScheduleDate);
     const fullText = `Date:${formattedDate} ${tempScheduleTime}`;
 
     const updatedRounds = rounds.map((r, rIdx) => {
@@ -431,10 +534,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     else if (uniqueQualified.length <= 2) nextRoundName = 'Grand Finals 🏆';
 
     const shuffled = [...uniqueQualified].sort(() => 0.5 - Math.random());
-    const nextGroups = [];
+    const rawMatchesList = [];
+    const groupStructures = [];
     let groupCharCode = 65;
     const currentGroupSize = uniqueQualified.length <= 5 ? uniqueQualified.length : groupSize;
-    let globalMatchCounter = 0;
 
     for (let i = 0; i < shuffled.length; i += currentGroupSize) {
       const groupPlayers = shuffled.slice(i, i + currentGroupSize);
@@ -453,27 +556,34 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         points: 0,
       }));
 
-      const matches = [];
+      const groupMatches = [];
       for (let x = 0; x < standings.length; x++) {
         for (let y = x + 1; y < standings.length; y++) {
-          const sched = calculateInitialMatchSchedule(globalMatchCounter++);
-
-          matches.push({
+          const matchObj = {
             id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
+            groupName,
             playerA: standings[x],
             playerB: standings[y],
             scoreA: null,
             scoreB: null,
             isLocked: false,
-            scheduledDate: sched.scheduledDate,
-            scheduledTimeSlot: sched.scheduledTimeSlot,
-            fullScheduleText: sched.fullScheduleText,
-          });
+          };
+          groupMatches.push(matchObj);
+          rawMatchesList.push(matchObj);
         }
       }
 
-      nextGroups.push({ groupName, standings, matches });
+      groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
+
+    // Conflict-free time slot assignment across all next-round matches
+    const scheduledMatches = buildConflictFreeSchedule(rawMatchesList);
+
+    const nextGroups = groupStructures.map(grp => ({
+      groupName: grp.groupName,
+      standings: grp.standings,
+      matches: scheduledMatches.filter(m => grp.matchIds.includes(m.id))
+    }));
 
     const updatedRounds = [...rounds, { roundName: nextRoundName, groups: nextGroups }];
     updateCurrentCategoryState(updatedRounds, rounds.length);
@@ -726,7 +836,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                                   <div 
                                     onClick={() => {
                                       setEditingMatchScheduleId(editingMatchScheduleId === m.id ? null : m.id);
-                                      setTempScheduleDate('2026-08-15');
+                                      setTempScheduleDate(parseShortDateToISO(m.scheduledDate));
                                       setTempScheduleTime(m.scheduledTimeSlot || '11 AM to 12 PM');
                                     }}
                                     className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
@@ -796,7 +906,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                                       type="date"
                                       value={tempScheduleDate}
                                       onChange={(e) => setTempScheduleDate(e.target.value)}
-                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
+                                      className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none [color-scheme:dark] cursor-pointer"
                                     />
                                   </div>
                                   <div>
