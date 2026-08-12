@@ -1,17 +1,25 @@
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
-// Connect using STORAGE prefix (or fallback to KV / Upstash variables)
-const redis = new Redis({
-  url: process.env.STORAGE_REST_API_URL || process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL,
-  token: process.env.STORAGE_REST_API_TOKEN || process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN,
-});
+const url = process.env.STORAGE_REST_API_URL || process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const token = process.env.STORAGE_REST_API_TOKEN || process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+
+// Safely initialize Redis client only if credentials exist
+const redis = (url && token) ? new Redis({ url, token }) : null;
 
 const STORAGE_KEY = 'sanvi_olympics_master_data';
 
 // GET: Fetches data globally with CDN caching and selective section filtering
 export async function GET(request) {
   try {
+    if (!redis) {
+      console.warn('Upstash Redis environment variables are missing in .env');
+      return NextResponse.json(
+        { participants: [], sportsData: {}, sponsors: [] },
+        { headers: { 'Cache-Control': 'no-store, max-age=0' } }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const section = searchParams.get('section'); // e.g. 'participants', 'sportsData', or 'sponsors'
 
@@ -56,6 +64,13 @@ export async function GET(request) {
 // POST: Updates central database in Redis (Admin only)
 export async function POST(request) {
   try {
+    if (!redis) {
+      return NextResponse.json(
+        { success: false, error: 'Redis environment variables are missing in .env' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
 
     if (!body || typeof body !== 'object') {
