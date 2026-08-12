@@ -21,7 +21,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const currentRoundIndex = currentCategoryData.currentRoundIndex;
 
   const [advancementCount, setAdvancementCount] = useState(3);
-  const [groupSize, setGroupSize] = useState(5);
+  const [groupSize, setGroupSize] = useState(4);
   
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
   const [adminPasswordInput, setAdminPasswordInput] = useState('');
@@ -311,7 +311,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   };
 
-  // Robust group structure generator ensuring no group has < 2 players (removes 1-player groups by expanding last group to 5)
+  // Robust group structure generator: preserves targetGroupSize (e.g. 4) and puts remainder into a separate group (e.g. remainder 3 -> group of 3)
   const createGroupStructures = (shuffledPlayers, targetGroupSize, roundNamePrefix) => {
     const totalQ = shuffledPlayers.length;
     let groupSizes = [];
@@ -326,12 +326,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         groupSizes.push(targetGroupSize);
       }
 
-      if (remainder === 1 && numGroups > 0) {
-        // If remainder is 1, merge into the last group to make it 5 players (preventing a 1-player group)
-        groupSizes[groupSizes.length - 1] += 1;
-      } else if (remainder > 1) {
-        for (let g = 0; g < remainder; g++) {
-          groupSizes[g % groupSizes.length] += 1;
+      if (remainder > 0) {
+        if (remainder === 1 && numGroups > 0) {
+          // If remainder is 1, merge into the last group to avoid 1-player group
+          groupSizes[groupSizes.length - 1] += 1;
+        } else {
+          // If remainder > 1 (e.g. 2 or 3), form a dedicated group with the remainder (e.g. 19 players / groupSize 4 -> 4 groups of 4 and 1 group of 3)
+          groupSizes.push(remainder);
         }
       }
     }
@@ -557,7 +558,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
 
     const shuffled = [...filteredParticipants].sort(() => 0.5 - Math.random());
-    const effectiveGroupSize = selectedCategory === 'Under 12 Years Kids' ? 5 : (shuffled.length <= 5 ? shuffled.length : groupSize);
+    const effectiveGroupSize = selectedCategory === 'Under 12 Years Kids' ? 5 : groupSize;
 
     const { groupStructures, rawMatchesList } = createGroupStructures(shuffled, effectiveGroupSize, 'Round 1');
 
@@ -1094,7 +1095,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                       <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Players)</h5>
                         <span className="text-[10px] text-slate-400">
-                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Player Group)' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`)))}
+                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Player Group)' : (grp.standings.length === 3 ? 'Top 1 Advances (3-Player Group)' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`))))}
                         </span>
                       </div>
 
