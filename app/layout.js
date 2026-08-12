@@ -11,9 +11,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-  export const metadata = {
+export const metadata = {
   title: 'Sanvi Olympics',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
+};
+
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({ children }) {
@@ -25,6 +30,4 @@ export default function RootLayout({ children }) {
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
-  
-
 }
