@@ -91,6 +91,16 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return `${h} ${ampm}`.replace(' ', '');
   };
 
+  // Centralized effective advancement count calculation
+  const getEffectiveAdv = (grp, isGrand) => {
+    if (isGrand) return 1;
+    if (grp.standings.length === 5) return 3;
+    if (grp.standings.length === 3) return 2; // Top 2 advance from 3-player groups
+    if (selectedCategory === 'Under 12 Years Kids') return 3;
+    if (grp.standings.length < 4) return 1;
+    return advancementCount;
+  };
+
   // Find the latest scheduled match date in a given round
   const getLatestDateFromRound = (round) => {
     let maxTimestamp = 0;
@@ -311,7 +321,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   };
 
-  // Robust group structure generator: preserves targetGroupSize (e.g. 4) and puts remainder into a separate group (e.g. remainder 3 -> group of 3)
+  // Robust group structure generator: preserves targetGroupSize and puts remainder into a separate group
   const createGroupStructures = (shuffledPlayers, targetGroupSize, roundNamePrefix) => {
     const totalQ = shuffledPlayers.length;
     let groupSizes = [];
@@ -328,10 +338,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
       if (remainder > 0) {
         if (remainder === 1 && numGroups > 0) {
-          // If remainder is 1, merge into the last group to avoid 1-player group
           groupSizes[groupSizes.length - 1] += 1;
         } else {
-          // If remainder > 1 (e.g. 2 or 3), form a dedicated group with the remainder (e.g. 19 players / groupSize 4 -> 4 groups of 4 and 1 group of 3)
           groupSizes.push(remainder);
         }
       }
@@ -685,7 +693,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const grp = currentRound.groups[groupIndex];
     const isGrandFinaleGroup = currentRound?.roundName?.toLowerCase().includes('grand finals');
-    const effectiveAdv = isGrandFinaleGroup ? 1 : (grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount)));
+    const effectiveAdv = getEffectiveAdv(grp, isGrandFinaleGroup);
 
     const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
 
@@ -771,7 +779,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     let qualifiedPlayers = [];
     currentRound.groups.forEach(grp => {
       const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-      const effectiveAdv = grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
+      const effectiveAdv = getEffectiveAdv(grp, isGrandFinale);
       const topN = sorted.slice(0, effectiveAdv);
       qualifiedPlayers.push(...topN);
     });
@@ -844,7 +852,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const allDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
     if (!allDone) return false;
     const isGrandGroup = currentRound?.roundName?.toLowerCase().includes('grand finals');
-    const effectiveAdv = isGrandGroup ? 1 : (grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount)));
+    const effectiveAdv = getEffectiveAdv(grp, isGrandGroup);
     if (effectiveAdv >= grp.standings.length) return false;
     const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
     const cutoffP = sorted[effectiveAdv - 1]?.points;
@@ -1071,7 +1079,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {currentRound.groups.map((grp, gIdx) => {
-                  const effectiveAdv = isGrandFinale ? 1 : (grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount)));
+                  const effectiveAdv = getEffectiveAdv(grp, isGrandFinale);
                   const allGroupMatchesDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
                   
                   // Check if there is a tie at the cutoff or in finals
@@ -1095,7 +1103,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                       <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Players)</h5>
                         <span className="text-[10px] text-slate-400">
-                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Player Group)' : (grp.standings.length === 3 ? 'Top 1 Advances (3-Player Group)' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`))))}
+                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Player Group)' : (grp.standings.length === 3 ? 'Top 2 Advance (3-Player Group)' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`))))}
                         </span>
                       </div>
 
