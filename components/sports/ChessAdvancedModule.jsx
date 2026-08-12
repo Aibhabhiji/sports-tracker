@@ -311,6 +311,78 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   };
 
+  // Robust group structure generator ensuring no group has < 2 players (removes 1-player groups by expanding last group to 5)
+  const createGroupStructures = (shuffledPlayers, targetGroupSize, roundNamePrefix) => {
+    const totalQ = shuffledPlayers.length;
+    let groupSizes = [];
+
+    if (totalQ <= 5) {
+      groupSizes = [totalQ];
+    } else {
+      let numGroups = Math.floor(totalQ / targetGroupSize);
+      let remainder = totalQ % targetGroupSize;
+
+      for (let g = 0; g < numGroups; g++) {
+        groupSizes.push(targetGroupSize);
+      }
+
+      if (remainder === 1 && numGroups > 0) {
+        // If remainder is 1, merge into the last group to make it 5 players (preventing a 1-player group)
+        groupSizes[groupSizes.length - 1] += 1;
+      } else if (remainder > 1) {
+        for (let g = 0; g < remainder; g++) {
+          groupSizes[g % groupSizes.length] += 1;
+        }
+      }
+    }
+
+    const rawMatchesList = [];
+    const groupStructures = [];
+    let groupCharCode = 65;
+    let currentIndex = 0;
+
+    groupSizes.forEach((gSize, gIdx) => {
+      const groupPlayers = shuffledPlayers.slice(currentIndex, currentIndex + gSize);
+      currentIndex += gSize;
+
+      const groupName = totalQ <= 5 && roundNamePrefix.toLowerCase().includes('grand finals') ? roundNamePrefix : `Group ${String.fromCharCode(groupCharCode++)}`;
+
+      const standings = groupPlayers.map(p => ({
+        id: p.id || p.regId || p.Registration_ID || `p_${Math.random()}`,
+        regId: p.regId,
+        Registration_ID: p.Registration_ID,
+        name: p.name,
+        flat: p.flat,
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        points: 0,
+      }));
+
+      const groupMatches = [];
+      for (let x = 0; x < standings.length; x++) {
+        for (let y = x + 1; y < standings.length; y++) {
+          const matchObj = {
+            id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
+            groupName,
+            playerA: standings[x],
+            playerB: standings[y],
+            scoreA: null,
+            scoreB: null,
+            isLocked: false,
+          };
+          groupMatches.push(matchObj);
+          rawMatchesList.push(matchObj);
+        }
+      }
+
+      groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
+    });
+
+    return { groupStructures, rawMatchesList };
+  };
+
   // Sync player schedules strictly for Chess participants to sportState.playerSchedules
   const buildPlayerSchedulesMap = (updatedRoundsMap) => {
     const schedulesMap = { ...(sportState.playerSchedules || {}) };
@@ -485,48 +557,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
 
     const shuffled = [...filteredParticipants].sort(() => 0.5 - Math.random());
-    const rawMatchesList = [];
-    const groupStructures = [];
-    let groupCharCode = 65;
-
     const effectiveGroupSize = selectedCategory === 'Under 12 Years Kids' ? 5 : (shuffled.length <= 5 ? shuffled.length : groupSize);
 
-    for (let i = 0; i < shuffled.length; i += effectiveGroupSize) {
-      const groupPlayers = shuffled.slice(i, i + effectiveGroupSize);
-      const groupName = `Group ${String.fromCharCode(groupCharCode++)}`;
-      
-      const standings = groupPlayers.map(p => ({
-        id: p.id || p.regId || p.Registration_ID || `p_${Math.random()}`,
-        regId: p.regId,
-        Registration_ID: p.Registration_ID,
-        name: p.name,
-        flat: p.flat,
-        played: 0,
-        won: 0,
-        drawn: 0,
-        lost: 0,
-        points: 0,
-      }));
-
-      const groupMatches = [];
-      for (let x = 0; x < standings.length; x++) {
-        for (let y = x + 1; y < standings.length; y++) {
-          const matchObj = {
-            id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
-            groupName,
-            playerA: standings[x],
-            playerB: standings[y],
-            scoreA: null,
-            scoreB: null,
-            isLocked: false,
-          };
-          groupMatches.push(matchObj);
-          rawMatchesList.push(matchObj);
-        }
-      }
-
-      groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
-    }
+    const { groupStructures, rawMatchesList } = createGroupStructures(shuffled, effectiveGroupSize, 'Round 1');
 
     const round1StartDate = new Date('2026-08-15');
     let scheduledMatches;
@@ -644,72 +677,81 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     updateCurrentCategoryState(updatedRounds, currentRoundIndex);
   };
 
-  // Helper to schedule a tiebreaker match between tied players in a group
+  // Helper to schedule tiebreaker matches among all tied players (supports multi-way ties like 3-way ties)
   const handleScheduleTiebreaker = (groupIndex) => {
     const currentRound = rounds[currentRoundIndex];
     if (!currentRound) return;
 
     const grp = currentRound.groups[groupIndex];
     const isGrandFinaleGroup = currentRound?.roundName?.toLowerCase().includes('grand finals');
-    const effectiveAdv = isGrandFinaleGroup ? 1 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
+    const effectiveAdv = isGrandFinaleGroup ? 1 : (grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount)));
 
     const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-    
-    // Identify tied players at the cutoff or in finals
-    let player1 = null;
-    let player2 = null;
 
-    if (isGrandFinaleGroup || grp.standings.length === 2) {
-      player1 = sorted[0];
-      player2 = sorted[1];
+    let tiedPlayers = [];
+    if (isGrandFinaleGroup) {
+      const topPoints = sorted[0]?.points;
+      const topWins = sorted[0]?.won;
+      tiedPlayers = sorted.filter(s => s.points === topPoints && s.won === topWins);
     } else {
-      const cutoffScore = sorted[effectiveAdv - 1].points;
-      const tiedAtCutoff = sorted.filter(s => s.points === cutoffScore);
-      if (tiedAtCutoff.length >= 2) {
-        player1 = tiedAtCutoff[0];
-        player2 = tiedAtCutoff[1];
-      } else {
-        player1 = sorted[effectiveAdv - 1];
-        player2 = sorted[effectiveAdv];
+      const cutoffPlayer = sorted[effectiveAdv - 1];
+      if (cutoffPlayer) {
+        const boundaryScore = cutoffPlayer.points;
+        tiedPlayers = sorted.filter(s => s.points === boundaryScore);
       }
     }
 
-    if (!player1 || !player2) {
+    const uniqueTiedMap = new Map();
+    tiedPlayers.forEach(p => uniqueTiedMap.set(p.id, p));
+    const tiedList = Array.from(uniqueTiedMap.values());
+
+    if (tiedList.length < 2) {
+      if (sorted.length >= effectiveAdv + 1) {
+        tiedList.push(sorted[effectiveAdv - 1], sorted[effectiveAdv]);
+      } else if (sorted.length >= 2) {
+        tiedList.push(sorted[0], sorted[1]);
+      }
+    }
+
+    if (tiedList.length < 2) {
       alert('Could not determine tied players for tiebreaker match.');
       return;
     }
 
-    const latestDate = getLatestDateFromRound(currentRound);
-    const nextDate = new Date(latestDate);
-    nextDate.setDate(nextDate.getDate() + 1);
-    const sched = calculateInitialMatchSchedule(grp.matches.length + 10);
-
-    const tiebreakerMatch = {
-      id: `MATCH_TIEBREAK_${selectedCategory}_${grp.groupName}_${Date.now()}`,
-      groupName: grp.groupName,
-      playerA: player1,
-      playerB: player2,
-      scoreA: null,
-      scoreB: null,
-      isLocked: false,
-      isTiebreaker: true,
-      scheduledDate: sched.scheduledDate,
-      scheduledTimeSlot: sched.scheduledTimeSlot,
-      fullScheduleText: sched.fullScheduleText,
-    };
+    // Generate round-robin match fixtures for all pairs of tied players
+    const newTiebreakerMatches = [];
+    for (let x = 0; x < tiedList.length; x++) {
+      for (let y = x + 1; y < tiedList.length; y++) {
+        const sched = calculateInitialMatchSchedule(grp.matches.length + newTiebreakerMatches.length + 10);
+        const matchObj = {
+          id: `MATCH_TIEBREAK_${selectedCategory}_${grp.groupName}_${x}_${y}_${Date.now()}`,
+          groupName: grp.groupName,
+          playerA: tiedList[x],
+          playerB: tiedList[y],
+          scoreA: null,
+          scoreB: null,
+          isLocked: false,
+          isTiebreaker: true,
+          scheduledDate: sched.scheduledDate,
+          scheduledTimeSlot: sched.scheduledTimeSlot,
+          fullScheduleText: sched.fullScheduleText,
+        };
+        newTiebreakerMatches.push(matchObj);
+      }
+    }
 
     const updatedGroups = currentRound.groups.map((g, gIdx) => {
       if (gIdx !== groupIndex) return g;
       return {
         ...g,
-        matches: [...g.matches, tiebreakerMatch]
+        matches: [...g.matches, ...newTiebreakerMatches]
       };
     });
 
     const updatedRounds = [...rounds];
     updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
     updateCurrentCategoryState(updatedRounds, currentRoundIndex);
-    alert(`⚖️ Tiebreaker playoff match successfully scheduled between ${player1.name} and ${player2.name}! Play this match to resolve the tie.`);
+    alert(`⚖️ ${newTiebreakerMatches.length} tiebreaker playoff match(es) successfully scheduled among ${tiedList.map(p => p.name).join(', ')}! Play these matches to resolve the tie.`);
   };
 
   const handleAdvanceToNextRound = () => {
@@ -728,7 +770,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     let qualifiedPlayers = [];
     currentRound.groups.forEach(grp => {
       const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-      const effectiveAdv = selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount);
+      const effectiveAdv = grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
       const topN = sorted.slice(0, effectiveAdv);
       qualifiedPlayers.push(...topN);
     });
@@ -754,47 +796,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     else if (uniqueQualified.length <= 2) nextRoundName = 'Grand Finals 🏆';
 
     const shuffled = [...uniqueQualified].sort(() => 0.5 - Math.random());
-    const rawMatchesList = [];
-    const groupStructures = [];
-    let groupCharCode = 65;
     const currentGroupSize = uniqueQualified.length <= 5 ? uniqueQualified.length : groupSize;
-
-    for (let i = 0; i < shuffled.length; i += currentGroupSize) {
-      const groupPlayers = shuffled.slice(i, i + currentGroupSize);
-      const groupName = uniqueQualified.length <= 5 ? nextRoundName : `Group ${String.fromCharCode(groupCharCode++)}`;
-      
-      const standings = groupPlayers.map(p => ({
-        id: p.id,
-        regId: p.regId,
-        Registration_ID: p.Registration_ID,
-        name: p.name,
-        flat: p.flat,
-        played: 0,
-        won: 0,
-        drawn: 0,
-        lost: 0,
-        points: 0,
-      }));
-
-      const groupMatches = [];
-      for (let x = 0; x < standings.length; x++) {
-        for (let y = x + 1; y < standings.length; y++) {
-          const matchObj = {
-            id: `MATCH_${selectedCategory}_${groupName}_${x}_${y}_${Date.now()}`,
-            groupName,
-            playerA: standings[x],
-            playerB: standings[y],
-            scoreA: null,
-            scoreB: null,
-            isLocked: false,
-          };
-          groupMatches.push(matchObj);
-          rawMatchesList.push(matchObj);
-        }
-      }
-
-      groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
-    }
+    const { groupStructures, rawMatchesList } = createGroupStructures(shuffled, currentGroupSize, nextRoundName);
 
     const latestDateInCurrentRound = getLatestDateFromRound(currentRound);
     const nextRoundStartDate = getNextWeekendSaturday(latestDateInCurrentRound);
@@ -840,14 +843,12 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const allDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
     if (!allDone) return false;
     const isGrandGroup = currentRound?.roundName?.toLowerCase().includes('grand finals');
-    const effectiveAdv = isGrandGroup ? 1 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
+    const effectiveAdv = isGrandGroup ? 1 : (grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount)));
     if (effectiveAdv >= grp.standings.length) return false;
     const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
     const cutoffP = sorted[effectiveAdv - 1]?.points;
-    const cutoffW = sorted[effectiveAdv - 1]?.won;
     const nextP = sorted[effectiveAdv]?.points;
-    const nextW = sorted[effectiveAdv]?.won;
-    return cutoffP === nextP && cutoffW === nextW;
+    return cutoffP === nextP;
   }) : false;
 
   const canAdvance = currentRound && !hasUncompletedMatches && !hasUnresolvedTies;
@@ -1069,7 +1070,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {currentRound.groups.map((grp, gIdx) => {
-                  const effectiveAdv = isGrandFinale ? 1 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
+                  const effectiveAdv = isGrandFinale ? 1 : (grp.standings.length === 5 ? 3 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount)));
                   const allGroupMatchesDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
                   
                   // Check if there is a tie at the cutoff or in finals
@@ -1077,10 +1078,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                   if (allGroupMatchesDone && effectiveAdv < grp.standings.length) {
                     const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
                     const cutoffP = sorted[effectiveAdv - 1]?.points;
-                    const cutoffW = sorted[effectiveAdv - 1]?.won;
                     const nextP = sorted[effectiveAdv]?.points;
-                    const nextW = sorted[effectiveAdv]?.won;
-                    if (cutoffP === nextP && cutoffW === nextW) {
+                    if (cutoffP === nextP) {
                       groupHasTie = true;
                     }
                   } else if (allGroupMatchesDone && isGrandFinale) {
@@ -1095,7 +1094,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                       <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Players)</h5>
                         <span className="text-[10px] text-slate-400">
-                          {isGrandFinale ? 'Grand Final Match' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`))}
+                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Player Group)' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`)))}
                         </span>
                       </div>
 
@@ -1134,12 +1133,12 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                       {/* Tiebreaker Alert & Schedule Button */}
                       {groupHasTie && (
                         <div className="bg-amber-950/60 border border-amber-500/50 p-3 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-2 text-xs">
-                          <span className="text-amber-300 font-bold">⚠️ Tie detected at qualifying cutoff! Playoff match required.</span>
+                          <span className="text-amber-300 font-bold">⚠️ Tie detected at qualifying cutoff! Round-robin playoff required.</span>
                           <button
                             onClick={() => handleScheduleTiebreaker(gIdx)}
                             className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs shadow transition whitespace-nowrap"
                           >
-                            ⚖️ Schedule Tiebreaker Match
+                            ⚖️ Schedule Tiebreaker Matches
                           </button>
                         </div>
                       )}
