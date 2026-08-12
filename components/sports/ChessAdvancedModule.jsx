@@ -20,7 +20,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const rounds = currentCategoryData.rounds;
   const currentRoundIndex = currentCategoryData.currentRoundIndex;
 
-  const [advancementCount, setAdvancementCount] = useState(3);
+  const [advancementCount, setAdvancementCount] = useState(2);
   const [groupSize, setGroupSize] = useState(4);
   
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(false);
@@ -34,8 +34,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   // Update defaults based on selected category
   useEffect(() => {
     if (selectedCategory === 'Under 12 Years Kids') {
-      setAdvancementCount(3);
-      setGroupSize(5);
+      setAdvancementCount(2);
+      setGroupSize(4); // 25 players -> 5 groups of 4 and 1 group of 5
     } else {
       setAdvancementCount(2);
       setGroupSize(4);
@@ -91,12 +91,12 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return `${h} ${ampm}`.replace(' ', '');
   };
 
-  // Centralized effective advancement count calculation
+  // Centralized effective advancement count calculation based on group size
   const getEffectiveAdv = (grp, isGrand) => {
     if (isGrand) return 1;
-    if (grp.standings.length === 5) return 3;
-    if (grp.standings.length === 3) return 2; // Top 2 advance from 3-player groups
-    if (selectedCategory === 'Under 12 Years Kids') return 3;
+    if (grp.standings.length === 5) return 3; // 5-player group -> Top 3 advance
+    if (grp.standings.length === 4) return 2; // 4-player group -> Top 2 advance
+    if (grp.standings.length === 3) return 2; // 3-player group -> Top 2 advance
     if (grp.standings.length < 4) return 1;
     return advancementCount;
   };
@@ -218,7 +218,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // Safe Weekend-by-weekend match schedule generator for 18+ Years Adults (Guaranteed against infinite loops)
+  // Safe Weekend-by-weekend match schedule generator for 18+ Years Adults
   const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15'), isRound1 = false) => {
     let parallelCapacity = 3;
     let slotsPerDay = 6;
@@ -249,7 +249,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         const countA = wData.playerCounts[playerAId] || 0;
         const countB = wData.playerCounts[playerBId] || 0;
 
-        // Progressive constraint relaxation if scheduling takes multiple attempts
         const maxPerWeekend = safetyCounter > 25 ? 10 : 2;
 
         if (countA < maxPerWeekend && countB < maxPerWeekend) {
@@ -297,7 +296,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         }
       }
 
-      // Safe fallback if safetyCounter limit reached
       if (!assigned) {
         const matchDate = new Date(baseStart);
         finalDateStr = formatDateShort(matchDate);
@@ -340,7 +338,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   };
 
-  // Robust group structure generator: preserves targetGroupSize and puts remainder into a separate group
+  // Robust group structure generator: preserves targetGroupSize and handles remainder
   const createGroupStructures = (shuffledPlayers, targetGroupSize, roundNamePrefix) => {
     const totalQ = shuffledPlayers.length;
     let groupSizes = [];
@@ -585,7 +583,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
 
     const shuffled = [...filteredParticipants].sort(() => 0.5 - Math.random());
-    const effectiveGroupSize = selectedCategory === 'Under 12 Years Kids' ? 5 : groupSize;
+    const effectiveGroupSize = groupSize; // 4 for Under 12 (results in 5 groups of 4 and 1 group of 5 for 25 players)
 
     const { groupStructures, rawMatchesList } = createGroupStructures(shuffled, effectiveGroupSize, 'Round 1');
 
@@ -705,7 +703,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     updateCurrentCategoryState(updatedRounds, currentRoundIndex);
   };
 
-  // Helper to schedule tiebreaker matches among all tied players (supports multi-way ties like 3-way ties)
+  // Helper to schedule tiebreaker matches among all tied players
   const handleScheduleTiebreaker = (groupIndex) => {
     const currentRound = rounds[currentRoundIndex];
     if (!currentRound) return;
@@ -746,7 +744,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       return;
     }
 
-    // Generate round-robin match fixtures for all pairs of tied players
     const newTiebreakerMatches = [];
     for (let x = 0; x < tiedList.length; x++) {
       for (let y = x + 1; y < tiedList.length; y++) {
@@ -881,7 +878,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
   const canAdvance = currentRound && !hasUncompletedMatches && !hasUnresolvedTies;
 
-  // Grand Champion calculation ensuring scoring is fully complete & no ties in finals
   let grandChampion = null;
   let grandFinalsCompleted = false;
   let grandFinalsTie = false;
@@ -926,12 +922,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           </div>
 
           <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs">
-            <span className="text-slate-400 font-bold">Top N Advance:</span>
-            <select value={advancementCount} onChange={(e) => setAdvancementCount(Number(e.target.value))} className="bg-slate-900 text-amber-400 font-bold rounded p-1 outline-none">
-              <option value={3}>Top 3</option>
-              <option value={2}>Top 2</option>
-              <option value={1}>Top 1</option>
-            </select>
+            <span className="text-slate-400 font-bold">Base Group Size:</span>
+            <span className="text-amber-400 font-black">{groupSize}</span>
           </div>
 
           {/* Module View Mode Toggle */}
@@ -1101,7 +1093,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                   const effectiveAdv = getEffectiveAdv(grp, isGrandFinale);
                   const allGroupMatchesDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
                   
-                  // Check if there is a tie at the cutoff or in finals
                   let groupHasTie = false;
                   if (allGroupMatchesDone && effectiveAdv < grp.standings.length) {
                     const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
@@ -1122,7 +1113,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                       <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Players)</h5>
                         <span className="text-[10px] text-slate-400">
-                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Player Group)' : (grp.standings.length === 3 ? 'Top 2 Advance (3-Player Group)' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`))))}
+                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Player Group)' : (grp.standings.length === 4 ? 'Top 2 Advance (4-Player Group)' : (grp.standings.length === 3 ? 'Top 2 Advance (3-Player Group)' : `Top ${effectiveAdv} Advance`)))}
                         </span>
                       </div>
 
@@ -1158,7 +1149,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                         </tbody>
                       </table>
 
-                      {/* Tiebreaker Alert & Schedule Button */}
                       {groupHasTie && (
                         <div className="bg-amber-950/60 border border-amber-500/50 p-3 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-2 text-xs">
                           <span className="text-amber-300 font-bold">⚠️ Tie detected at qualifying cutoff! Round-robin playoff required.</span>
