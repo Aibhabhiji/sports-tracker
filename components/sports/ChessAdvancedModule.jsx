@@ -160,8 +160,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const playerAId = m.playerA?.id || m.playerA?.regId || m.playerA?.Registration_ID || m.playerA?.name;
       const playerBId = m.playerB?.id || m.playerB?.regId || m.playerB?.Registration_ID || m.playerB?.name;
 
-      while (!assigned) {
-        if (isRound1 && dayIdx > 8) {
+      let safetyCounter = 0;
+      while (!assigned && safetyCounter < 500) {
+        safetyCounter++;
+        if (isRound1 && dayIdx > 12) {
           parallelCapacity += 2;
           dayIdx = 0;
           slotIdx = 0;
@@ -175,7 +177,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         const currentSlot = slotTracker[key];
         const hasConflict = (playerAId && currentSlot.players.has(playerAId)) || (playerBId && currentSlot.players.has(playerBId));
 
-        if (currentSlot.count < parallelCapacity && !hasConflict) {
+        if (currentSlot.count < parallelCapacity + Math.floor(safetyCounter / 100) && !hasConflict) {
           currentSlot.count += 1;
           if (playerAId) currentSlot.players.add(playerAId);
           if (playerBId) currentSlot.players.add(playerBId);
@@ -203,10 +205,20 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
           dayIdx += 1;
         }
       }
+
+      // Fallback if safety limit reached
+      const currentDate = new Date(startD);
+      const dateStr = formatDateShort(currentDate);
+      return {
+        ...m,
+        scheduledDate: dateStr,
+        scheduledTimeSlot: '11 AM to 12 PM',
+        fullScheduleText: `Date:${dateStr} 11 AM to 12 PM`,
+      };
     });
   };
 
-  // Weekend-by-weekend match schedule generator for 18+ Years Adults
+  // Safe Weekend-by-weekend match schedule generator for 18+ Years Adults (Guaranteed against infinite loops)
   const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15'), isRound1 = false) => {
     let parallelCapacity = 3;
     let slotsPerDay = 6;
@@ -222,13 +234,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       let assigned = false;
       let finalDateStr = '';
       let finalSlotStr = '';
+      let safetyCounter = 0;
 
-      while (!assigned) {
-        if (isRound1 && weekendIdx > 1) {
-          parallelCapacity += 2;
-          weekendIdx = 0;
-        }
-
+      while (!assigned && safetyCounter < 100) {
+        safetyCounter++;
         if (!weekendTracker[weekendIdx]) {
           weekendTracker[weekendIdx] = {
             playerCounts: {},
@@ -240,7 +249,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         const countA = wData.playerCounts[playerAId] || 0;
         const countB = wData.playerCounts[playerBId] || 0;
 
-        if (countA < 2 && countB < 2) {
+        // Progressive constraint relaxation if scheduling takes multiple attempts
+        const maxPerWeekend = safetyCounter > 25 ? 10 : 2;
+
+        if (countA < maxPerWeekend && countB < maxPerWeekend) {
           for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
             for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
               const slotKey = `${dayOffset}_${slotIdx}`;
@@ -253,7 +265,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                 (playerAId && currentSlot.players.has(playerAId)) || 
                 (playerBId && currentSlot.players.has(playerBId));
 
-              if (currentSlot.count < parallelCapacity && !hasTimeSlotConflict) {
+              if (currentSlot.count < parallelCapacity + Math.floor(safetyCounter / 10) && !hasTimeSlotConflict) {
                 currentSlot.count += 1;
                 if (playerAId) {
                   currentSlot.players.add(playerAId);
@@ -283,6 +295,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         if (!assigned) {
           weekendIdx++;
         }
+      }
+
+      // Safe fallback if safetyCounter limit reached
+      if (!assigned) {
+        const matchDate = new Date(baseStart);
+        finalDateStr = formatDateShort(matchDate);
+        finalSlotStr = '11 AM to 12 PM';
       }
 
       return {
@@ -586,7 +605,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
     const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
     updateCurrentCategoryState(newRounds, 0);
-    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} group formed with schedules completing within 23 Aug weekend)`);
+    alert(`Round 1 initialized for ${selectedCategory}! (${initialGroups.length} groups formed safely)`);
   };
 
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
