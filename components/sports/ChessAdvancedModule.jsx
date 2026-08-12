@@ -94,7 +94,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   // Find the latest scheduled match date in a given round
   const getLatestDateFromRound = (round) => {
     let maxTimestamp = 0;
-    let maxDateObj = new Date('2026-08-23'); // Default fallback to Aug 23, 2026
+    let maxDateObj = new Date('2026-08-23');
 
     if (!round || !round.groups) return maxDateObj;
 
@@ -118,15 +118,15 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   // Calculate the Saturday of the next weekend following a given date
   const getNextWeekendSaturday = (fromDate) => {
     const d = new Date(fromDate);
-    const day = d.getDay(); // 0 = Sun, 1 = Mon, ..., 6 = Sat
+    const day = d.getDay();
     
     let daysToAdd = 0;
     if (day === 6) {
-      daysToAdd = 7; // Next Saturday
+      daysToAdd = 7;
     } else if (day === 0) {
-      daysToAdd = 6; // Next Saturday
+      daysToAdd = 6;
     } else {
-      daysToAdd = 6 - day; // Upcoming Saturday
+      daysToAdd = 6 - day;
     }
 
     d.setDate(d.getDate() + daysToAdd);
@@ -136,7 +136,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   // Standard conflict-free match schedule generator
   const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15'), isRound1 = false) => {
     let slotsPerDay = 6;
-    let parallelCapacity = 3; // Max 3 boards at once
+    let parallelCapacity = 3;
     const startHour = 11;
     const matchDuration = 1;
 
@@ -151,7 +151,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const playerBId = m.playerB?.id || m.playerB?.regId || m.playerB?.Registration_ID || m.playerB?.name;
 
       while (!assigned) {
-        // Enforce wrapping Round 1 matches within 23 Aug 2026 weekend (Aug 15 + 8 days = Aug 23)
         if (isRound1 && dayIdx > 8) {
           parallelCapacity += 2;
           dayIdx = 0;
@@ -198,7 +197,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   };
 
   // Weekend-by-weekend match schedule generator for 18+ Years Adults
-  // Ensures each player plays 2 matches per weekend
   const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15'), isRound1 = false) => {
     let parallelCapacity = 3;
     let slotsPerDay = 6;
@@ -216,7 +214,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       let finalSlotStr = '';
 
       while (!assigned) {
-        // Enforce wrapping Round 1 within 23 Aug 2026 weekend (Weekend 0 = Aug 15-16, Weekend 1 = Aug 22-23)
         if (isRound1 && weekendIdx > 1) {
           parallelCapacity += 2;
           weekendIdx = 0;
@@ -233,9 +230,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         const countA = wData.playerCounts[playerAId] || 0;
         const countB = wData.playerCounts[playerBId] || 0;
 
-        // Schedule only if both players have played fewer than 2 matches this weekend
         if (countA < 2 && countB < 2) {
-          // Try scheduling on Saturday (dayOffset = 0) or Sunday (dayOffset = 1)
           for (let dayOffset = 0; dayOffset <= 1; dayOffset++) {
             for (let slotIdx = 0; slotIdx < slotsPerDay; slotIdx++) {
               const slotKey = `${dayOffset}_${slotIdx}`;
@@ -454,7 +449,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     onUpdateSportState({ categoryRounds: updatedMap, playerSchedules: updatedPlayerSchedules });
   };
 
-  // Feature: Delete active tournament for selected category to start fresh
   const handleDeleteTournament = () => {
     const confirmDelete = window.confirm(
       `⚠️ Are you sure you want to DELETE the active tournament for category "${selectedCategory}"?\n\nThis will completely clear all rounds, group fixtures, match results, and scheduled times for this category so you can regenerate fresh schedules.`
@@ -495,7 +489,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     const groupStructures = [];
     let groupCharCode = 65;
 
-    // Rule: Under 12 Kids = 5 players per group. Other categories <= 5 players = 1 group.
     const effectiveGroupSize = selectedCategory === 'Under 12 Years Kids' ? 5 : (shuffled.length <= 5 ? shuffled.length : groupSize);
 
     for (let i = 0; i < shuffled.length; i += effectiveGroupSize) {
@@ -535,7 +528,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
 
-    // Round 1 starts on Aug 15, 2026 and wraps up within 23 Aug weekend
     const round1StartDate = new Date('2026-08-15');
     let scheduledMatches;
     if (selectedCategory === '18+ Years Adults') {
@@ -652,12 +644,80 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     updateCurrentCategoryState(updatedRounds, currentRoundIndex);
   };
 
+  // Helper to schedule a tiebreaker match between tied players in a group
+  const handleScheduleTiebreaker = (groupIndex) => {
+    const currentRound = rounds[currentRoundIndex];
+    if (!currentRound) return;
+
+    const grp = currentRound.groups[groupIndex];
+    const isGrandFinaleGroup = currentRound?.roundName?.toLowerCase().includes('grand finals');
+    const effectiveAdv = isGrandFinaleGroup ? 1 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
+
+    const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+    
+    // Identify tied players at the cutoff or in finals
+    let player1 = null;
+    let player2 = null;
+
+    if (isGrandFinaleGroup || grp.standings.length === 2) {
+      player1 = sorted[0];
+      player2 = sorted[1];
+    } else {
+      const cutoffScore = sorted[effectiveAdv - 1].points;
+      const tiedAtCutoff = sorted.filter(s => s.points === cutoffScore);
+      if (tiedAtCutoff.length >= 2) {
+        player1 = tiedAtCutoff[0];
+        player2 = tiedAtCutoff[1];
+      } else {
+        player1 = sorted[effectiveAdv - 1];
+        player2 = sorted[effectiveAdv];
+      }
+    }
+
+    if (!player1 || !player2) {
+      alert('Could not determine tied players for tiebreaker match.');
+      return;
+    }
+
+    const latestDate = getLatestDateFromRound(currentRound);
+    const nextDate = new Date(latestDate);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const sched = calculateInitialMatchSchedule(grp.matches.length + 10);
+
+    const tiebreakerMatch = {
+      id: `MATCH_TIEBREAK_${selectedCategory}_${grp.groupName}_${Date.now()}`,
+      groupName: grp.groupName,
+      playerA: player1,
+      playerB: player2,
+      scoreA: null,
+      scoreB: null,
+      isLocked: false,
+      isTiebreaker: true,
+      scheduledDate: sched.scheduledDate,
+      scheduledTimeSlot: sched.scheduledTimeSlot,
+      fullScheduleText: sched.fullScheduleText,
+    };
+
+    const updatedGroups = currentRound.groups.map((g, gIdx) => {
+      if (gIdx !== groupIndex) return g;
+      return {
+        ...g,
+        matches: [...g.matches, tiebreakerMatch]
+      };
+    });
+
+    const updatedRounds = [...rounds];
+    updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
+    updateCurrentCategoryState(updatedRounds, currentRoundIndex);
+    alert(`⚖️ Tiebreaker playoff match successfully scheduled between ${player1.name} and ${player2.name}! Play this match to resolve the tie.`);
+  };
+
   const handleAdvanceToNextRound = () => {
     const currentRound = rounds[currentRoundIndex];
     if (!currentRound) return;
 
     const hasUncompletedMatches = currentRound.groups.some(grp =>
-      grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
+      grp.matches.length === 0 || grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
     );
 
     if (hasUncompletedMatches) {
@@ -668,8 +728,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     let qualifiedPlayers = [];
     currentRound.groups.forEach(grp => {
       const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-      
-      // Rule: Under 12 Kids = Top 3 advance. Small groups < 4 = Top 1 advances. Otherwise = advancementCount.
       const effectiveAdv = selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount);
       const topN = sorted.slice(0, effectiveAdv);
       qualifiedPlayers.push(...topN);
@@ -738,7 +796,6 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     }
 
-    // Determine next round start date: Saturday of the NEXT weekend after current round finishes
     const latestDateInCurrentRound = getLatestDateFromRound(currentRound);
     const nextRoundStartDate = getNextWeekendSaturday(latestDateInCurrentRound);
 
@@ -774,11 +831,48 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const currentRound = rounds[currentRoundIndex];
   const isGrandFinale = currentRound?.roundName?.toLowerCase().includes('grand finals');
 
+  // Check group completion & tie status for current round
+  const hasUncompletedMatches = currentRound ? currentRound.groups.some(grp =>
+    grp.matches.length === 0 || grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
+  ) : false;
+
+  const hasUnresolvedTies = currentRound ? currentRound.groups.some(grp => {
+    const allDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
+    if (!allDone) return false;
+    const isGrandGroup = currentRound?.roundName?.toLowerCase().includes('grand finals');
+    const effectiveAdv = isGrandGroup ? 1 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
+    if (effectiveAdv >= grp.standings.length) return false;
+    const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+    const cutoffP = sorted[effectiveAdv - 1]?.points;
+    const cutoffW = sorted[effectiveAdv - 1]?.won;
+    const nextP = sorted[effectiveAdv]?.points;
+    const nextW = sorted[effectiveAdv]?.won;
+    return cutoffP === nextP && cutoffW === nextW;
+  }) : false;
+
+  const canAdvance = currentRound && !hasUncompletedMatches && !hasUnresolvedTies;
+
+  // Grand Champion calculation ensuring scoring is fully complete & no ties in finals
   let grandChampion = null;
+  let grandFinalsCompleted = false;
+  let grandFinalsTie = false;
+
   if (isGrandFinale && currentRound.groups.length > 0) {
-    const allStandings = currentRound.groups.flatMap(g => g.standings);
-    allStandings.sort((a, b) => b.points - a.points || b.won - a.won);
-    grandChampion = allStandings[0];
+    const g = currentRound.groups[0];
+    const allMatchesDone = g.matches.length > 0 && g.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
+    const sorted = [...g.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+
+    if (allMatchesDone && sorted.length >= 2) {
+      if (sorted[0].points > sorted[1].points || (sorted[0].points === sorted[1].points && sorted[0].won > sorted[1].won)) {
+        grandChampion = sorted[0];
+        grandFinalsCompleted = true;
+      } else if (sorted[0].points === sorted[1].points && sorted[0].won === sorted[1].won) {
+        grandFinalsTie = true;
+      }
+    } else if (allMatchesDone && sorted.length === 1) {
+      grandChampion = sorted[0];
+      grandFinalsCompleted = true;
+    }
   }
 
   return (
@@ -953,7 +1047,16 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                   </button>
 
                   {!isGrandFinale ? (
-                    <button onClick={handleAdvanceToNextRound} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-4 py-2 rounded-xl text-xs shadow">
+                    <button 
+                      onClick={handleAdvanceToNextRound} 
+                      disabled={!canAdvance}
+                      className={`font-black px-4 py-2 rounded-xl text-xs shadow transition ${
+                        canAdvance 
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-emerald-500/20' 
+                          : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'
+                      }`}
+                      title={!canAdvance ? "Complete all matches and resolve any group ties with tiebreaker matches first" : "Advance qualified players to next round"}
+                    >
                       ⚡ Regroup & Advance Qualified Players to Next Round
                     </button>
                   ) : (
@@ -966,14 +1069,33 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                 {currentRound.groups.map((grp, gIdx) => {
-                  const effectiveAdv = selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount);
+                  const effectiveAdv = isGrandFinale ? 1 : (selectedCategory === 'Under 12 Years Kids' ? 3 : (grp.standings.length < 4 ? 1 : advancementCount));
+                  const allGroupMatchesDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
+                  
+                  // Check if there is a tie at the cutoff or in finals
+                  let groupHasTie = false;
+                  if (allGroupMatchesDone && effectiveAdv < grp.standings.length) {
+                    const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+                    const cutoffP = sorted[effectiveAdv - 1]?.points;
+                    const cutoffW = sorted[effectiveAdv - 1]?.won;
+                    const nextP = sorted[effectiveAdv]?.points;
+                    const nextW = sorted[effectiveAdv]?.won;
+                    if (cutoffP === nextP && cutoffW === nextW) {
+                      groupHasTie = true;
+                    }
+                  } else if (allGroupMatchesDone && isGrandFinale) {
+                    const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+                    if (sorted.length >= 2 && sorted[0].points === sorted[1].points && sorted[0].won === sorted[1].won) {
+                      groupHasTie = true;
+                    }
+                  }
 
                   return (
                     <div key={grp.groupName} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
                       <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                         <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Players)</h5>
                         <span className="text-[10px] text-slate-400">
-                          {selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`)}
+                          {isGrandFinale ? 'Grand Final Match' : (selectedCategory === 'Under 12 Years Kids' ? 'Top 3 Advance' : (grp.standings.length < 4 ? 'Top 1 Advances (Group < 4)' : `Top ${advancementCount} Advance`))}
                         </span>
                       </div>
 
@@ -1009,15 +1131,29 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                         </tbody>
                       </table>
 
+                      {/* Tiebreaker Alert & Schedule Button */}
+                      {groupHasTie && (
+                        <div className="bg-amber-950/60 border border-amber-500/50 p-3 rounded-xl flex flex-col sm:flex-row justify-between items-center gap-2 text-xs">
+                          <span className="text-amber-300 font-bold">⚠️ Tie detected at qualifying cutoff! Playoff match required.</span>
+                          <button
+                            onClick={() => handleScheduleTiebreaker(gIdx)}
+                            className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs shadow transition whitespace-nowrap"
+                          >
+                            ⚖️ Schedule Tiebreaker Match
+                          </button>
+                        </div>
+                      )}
+
                       {/* Match Score Matrix */}
                       <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
                         <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Match Score Grid & Schedule</span>
                         {grp.matches.map((m) => (
-                          <div key={m.id} className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-3">
+                          <div key={m.id} className={`bg-slate-950 p-3 rounded-xl border ${m.isTiebreaker ? 'border-amber-500/50 bg-amber-950/10' : 'border-slate-800'} space-y-3`}>
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                               <div className="space-y-1">
-                                <div className="text-xs font-bold text-slate-200">
-                                  {m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}
+                                <div className="text-xs font-bold text-slate-200 flex items-center gap-2">
+                                  {m.isTiebreaker && <span className="bg-amber-500/20 text-amber-400 text-[9px] px-1.5 py-0.5 rounded font-black border border-amber-500/30">Tiebreaker</span>}
+                                  <span>{m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}</span>
                                 </div>
                                 
                                 <div className="flex items-center gap-2 flex-wrap">
@@ -1140,15 +1276,15 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                     </span>
 
                     <h3 className="text-2xl font-black text-amber-300 mt-2">
-                      {grandChampion ? grandChampion.name : 'Waiting for Final Result...'}
+                      {grandFinalsCompleted && grandChampion ? grandChampion.name : (grandFinalsTie ? '⚠️ Tie in Grand Finals (Playoff Required)' : 'Waiting for Final Match Completion & Scoring...')}
                     </h3>
 
                     <p className="text-xs text-slate-300 mt-1 font-bold">
-                      {grandChampion ? `Flat: ${grandChampion.flat} • Total Points: ${grandChampion.points} Pts` : 'Complete the Grand Finale match grid to reveal the champion.'}
+                      {grandFinalsCompleted && grandChampion ? `Flat: ${grandChampion.flat} • Total Points: ${grandChampion.points} Pts` : (grandFinalsTie ? 'Both finalists have tied. Please use the tiebreaker button to determine the sole champion.' : 'Complete and score the Grand Finale match grid to reveal the champion.')}
                     </p>
 
                     <div className="mt-6 flex items-center gap-2 text-xs text-amber-400/80 bg-slate-950/60 px-4 py-2 rounded-xl border border-amber-500/20">
-                      <span>✨ Congratulations to the {selectedCategory} Champion! ✨</span>
+                      <span>✨ {grandFinalsCompleted && grandChampion ? `Congratulations to the ${selectedCategory} Champion!` : 'Tournament Conclusion Pending'} ✨</span>
                     </div>
                   </div>
                 )}
