@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 
 export default function CarromAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
-  // Streamlined categories matching Chess (Under 12 Kids, 12 - 17 Years, 18+ Years)
+  // Streamlined categories matching Chess
   const categories = [
     'Under 12 Kids',
     '12 - 17 Years',
@@ -12,6 +12,11 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
   const [selectedCategory, setSelectedCategory] = useState('Under 12 Kids');
   const [carromTab, setCarromTab] = useState('participants');
+
+  // New Schedule Configuration Inputs (Date, Start Time, Total Hours)
+  const [scheduleDateInput, setScheduleDateInput] = useState('2026-08-15');
+  const [scheduleStartHourInput, setScheduleStartHourInput] = useState('17'); // 17 = 5 PM
+  const [scheduleTotalHoursInput, setScheduleTotalHoursInput] = useState('4'); // 4 hours (e.g., 5 PM to 9 PM)
 
   // Per-category rounds & teams stored in sportState
   const categoryRoundsMap = sportState?.categoryRounds || {};
@@ -51,7 +56,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
   // Helper to convert '15Aug26' to ISO date string 'YYYY-MM-DD' for <input type="date">
   const parseShortDateToISO = (dateStr) => {
-    if (!dateStr) return '2026-08-15';
+    if (!dateStr) return scheduleDateInput;
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
 
     const match = dateStr.match(/^(\d{1,2})\s*([A-Za-z]{3})\s*(\d{2,4})$/);
@@ -63,7 +68,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const month = months[monthStr.toLowerCase()] || '08';
       return `${yearStr}-${month}-${day}`;
     }
-    return '2026-08-15';
+    return scheduleDateInput;
   };
 
   // Helper to convert ISO date string 'YYYY-MM-DD' to short date format '15Aug26'
@@ -113,12 +118,14 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     return advancementCount;
   };
 
-  // Conflict-free match schedule generator (Prevents team time slot overlaps, 1 hour duration)
-  const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15')) => {
-    const slotsPerDay = 6;
-    const parallelCapacity = 3; // Max 3 boards at once
-    const startHour = 11;
+  // Conflict-free match schedule generator using custom Start Date, Start Time & Total Hours
+  const buildConflictFreeSchedule = (allMatches) => {
+    const startHour = parseInt(scheduleStartHourInput, 10) || 17;
+    const totalHours = parseInt(scheduleTotalHoursInput, 10) || 4;
     const matchDuration = 1; // 1 hour per match
+    const slotsPerDay = totalHours / matchDuration;
+    const parallelCapacity = 3; // Max 3 boards at once
+    const startD = new Date(scheduleDateInput || '2026-08-15');
 
     const slotTracker = {};
 
@@ -148,7 +155,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
           currentDate.setDate(currentDate.getDate() + dayIdx);
           const dateStr = formatDateShort(currentDate);
 
-          const slotStartHour = startHour + (slotIdx * matchDuration);
+          const slotStartHour = startHour + slotIdx;
           const slotEndHour = slotStartHour + matchDuration;
           const timeSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
 
@@ -170,14 +177,15 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     });
   };
 
-  // Calculate Initial Match Schedule Fallback (1 hour duration)
+  // Calculate Initial Match Schedule Fallback using custom date, start time, and total hours
   const calculateInitialMatchSchedule = (matchIndex) => {
-    const startD = new Date('2026-08-15');
-    const startHour = 11;
-    const matchesPerDay = 6;
+    const startD = new Date(scheduleDateInput || '2026-08-15');
+    const startHour = parseInt(scheduleStartHourInput, 10) || 17;
+    const totalHours = parseInt(scheduleTotalHoursInput, 10) || 4;
     const parallelCapacity = 3;
     const matchDuration = 1;
 
+    const matchesPerDay = totalHours * parallelCapacity;
     const dayOffset = Math.floor(matchIndex / matchesPerDay);
     const matchIndexOnDay = matchIndex % matchesPerDay;
     const slotIndex = Math.floor(matchIndexOnDay / parallelCapacity);
@@ -186,7 +194,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     currentDate.setDate(currentDate.getDate() + dayOffset);
     const dateStr = formatDateShort(currentDate);
 
-    const slotStartHour = startHour + (slotIndex * matchDuration);
+    const slotStartHour = startHour + slotIndex;
     const slotEndHour = slotStartHour + matchDuration;
 
     const timeSlotStr = `${formatHour12(slotStartHour)} to ${formatHour12(slotEndHour)}`;
@@ -536,7 +544,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
       const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
       updateCurrentCategoryState(newRounds, 0, teamsToUse);
-      alert(`Round 1 initialized for ${selectedCategory} with ${teamsToUse.length} doubles teams!`);
+      alert(`Round 1 initialized for ${selectedCategory} with ${teamsToUse.length} doubles teams (Starting ${scheduleDateInput} at ${formatHour12(parseInt(scheduleStartHourInput, 10))} for ${scheduleTotalHoursInput} hrs/day)!`);
     });
   };
 
@@ -868,7 +876,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
   return (
     <div className="space-y-6">
-      {/* Top Header & View Toggle */}
+      {/* Top Header & View Toggle with Highlighted Area Schedule Inputs */}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">🎯 Carrom Doubles Championship Suite</h3>
@@ -893,6 +901,49 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
               <option value={2}>Top 2 Teams</option>
               <option value={3}>Top 3 Teams</option>
               <option value={1}>Top 1 Team</option>
+            </select>
+          </div>
+
+          {/* Schedule Setup Controls placed in the highlighted area */}
+          <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-amber-500/30 text-xs flex-wrap">
+            <span className="text-amber-400 font-black">📅 Schedule Setup:</span>
+            <input
+              type="date"
+              value={scheduleDateInput}
+              onChange={(e) => setScheduleDateInput(e.target.value)}
+              className="bg-slate-900 text-amber-300 font-bold rounded p-1 outline-none [color-scheme:dark] cursor-pointer text-xs"
+              title="Tournament Start Date"
+            />
+            <select
+              value={scheduleStartHourInput}
+              onChange={(e) => setScheduleStartHourInput(e.target.value)}
+              className="bg-slate-900 text-amber-400 font-bold rounded p-1 outline-none text-xs"
+              title="Start Time"
+            >
+              <option value="9">9 AM</option>
+              <option value="10">10 AM</option>
+              <option value="11">11 AM</option>
+              <option value="12">12 PM</option>
+              <option value="13">1 PM</option>
+              <option value="14">2 PM</option>
+              <option value="15">3 PM</option>
+              <option value="16">4 PM</option>
+              <option value="17">5 PM</option>
+              <option value="18">6 PM</option>
+              <option value="19">7 PM</option>
+            </select>
+            <select
+              value={scheduleTotalHoursInput}
+              onChange={(e) => setScheduleTotalHoursInput(e.target.value)}
+              className="bg-slate-900 text-amber-400 font-bold rounded p-1 outline-none text-xs"
+              title="Total Daily Hours"
+            >
+              <option value="2">2 Hrs</option>
+              <option value="3">3 Hrs</option>
+              <option value="4">4 Hrs</option>
+              <option value="5">5 Hrs</option>
+              <option value="6">6 Hrs</option>
+              <option value="8">8 Hrs</option>
             </select>
           </div>
 
@@ -1267,12 +1318,12 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-slate-400 text-[10px] block mb-1">Time Slot (e.g., 11 AM to 12 PM):</label>
+                                    <label className="text-slate-400 text-[10px] block mb-1">Time Slot (e.g., 5 PM to 6 PM):</label>
                                     <input
                                       type="text"
                                       value={tempScheduleTime}
                                       onChange={(e) => setTempScheduleTime(e.target.value)}
-                                      placeholder="11 AM to 12 PM"
+                                      placeholder="5 PM to 6 PM"
                                       className="w-full bg-slate-950 text-amber-300 font-bold p-1.5 rounded border border-slate-800 text-xs outline-none"
                                     />
                                   </div>
