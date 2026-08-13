@@ -3,9 +3,8 @@
 import React, { useState, useEffect } from 'react';
 
 export default function CarromAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
-  // Strict categories matching Chess module
+  // Streamlined categories matching Chess (Under 12 Kids, 12 - 17 Years, 18+ Years)
   const categories = [
-    'Under 8 Kids',
     'Under 12 Kids',
     '12 - 17 Years',
     '18+ Years'
@@ -210,11 +209,8 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
     if (pCat === catStr || pAgeGroup === catStr) return true;
 
-    if (catStr.includes('under 8')) {
-      return (numAge > 0 && numAge < 8) || pCat.includes('under 8') || pAgeGroup.includes('under 8');
-    }
     if (catStr.includes('under 12')) {
-      return (numAge >= 8 && numAge < 12) || pCat.includes('under 12') || pAgeGroup.includes('under 12');
+      return (numAge > 0 && numAge < 12) || pCat.includes('under 12') || pAgeGroup.includes('under 12');
     }
     if (catStr.includes('12 - 17') || catStr.includes('teens')) {
       return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17') || pCat.includes('teen') || pAgeGroup.includes('teen');
