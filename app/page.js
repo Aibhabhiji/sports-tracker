@@ -12,6 +12,7 @@ import FootballModule from '@/components/sports/FootballModule';
 import TableTennisModule from '@/components/sports/TableTennisModule';
 import BadmintonModule from '@/components/sports/BadmintonModule';
 import AdminModule from '@/components/AdminModule';
+import MasterScheduleModule from '@/components/MasterScheduleModule';
 
 const SPORTS_LIST = [
   { id: 'cricket', name: 'Cricket', type: 'AUCTION_TEAM' },
@@ -90,6 +91,9 @@ export default function SanviOlympicsPortal() {
   const [participants, setParticipants] = useState([]);
   const [sportsData, setSportsData] = useState({});
 
+  // Master Schedule Matrix View Toggle State (Zero impact on existing logic)
+  const [showMasterSchedule, setShowMasterSchedule] = useState(false);
+
   const [filterByGameChoice, setFilterByGameChoice] = useState(true);
   const [selectedPhase, setSelectedPhase] = useState('All Phases');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
@@ -100,6 +104,15 @@ export default function SanviOlympicsPortal() {
   // Centralized Admin Protection
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminModuleState, setAdminModuleState] = useState({ admins: [], isAdmin: false });
+
+  // Global Add Player Modal States
+  const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [newPlayerFlat, setNewPlayerFlat] = useState('');
+  const [newPlayerAge, setNewPlayerAge] = useState('');
+  const [newPlayerPhase, setNewPlayerPhase] = useState('Phase 1');
+  const [newPlayerCategory, setNewPlayerCategory] = useState('Male');
+  const [selectedSportsForNewPlayer, setSelectedSportsForNewPlayer] = useState([]);
 
   // 12 Default Placeholders for Official Event Sponsors & Partners
   const [sponsors, setSponsors] = useState(() => normalizeSponsors([]));
@@ -179,6 +192,50 @@ export default function SanviOlympicsPortal() {
       };
       setSportsData(updatedSportsData);
       saveToCentralServer(participants, updatedSportsData, sponsors);
+    });
+  };
+
+  // Handler to add a new player globally across multiple sports
+  const handleGlobalAddPlayer = (e) => {
+    e.preventDefault();
+    if (!newPlayerName.trim()) {
+      alert('Please enter a player name.');
+      return;
+    }
+    if (selectedSportsForNewPlayer.length === 0) {
+      alert('Please select at least one sport.');
+      return;
+    }
+
+    verifyAdminAndExecute(() => {
+      const baseRegId = `SANVI-${Math.floor(1000 + Math.random() * 9000)}`;
+      
+      const newRecords = selectedSportsForNewPlayer.map((sportName, idx) => ({
+        id: `p_${Date.now()}_${idx}`,
+        regId: `${baseRegId}-${idx + 1}`,
+        Registration_ID: `${baseRegId}-${idx + 1}`,
+        name: newPlayerName.trim(),
+        flat: newPlayerFlat.trim() || 'N/A',
+        age: newPlayerAge.trim() || '18',
+        phase: newPlayerPhase,
+        category: newPlayerCategory,
+        gameChoice: sportName,
+        sport: sportName,
+      }));
+
+      const updatedParticipants = [...participants, ...newRecords];
+      setParticipants(updatedParticipants);
+      saveToCentralServer(updatedParticipants, sportsData, sponsors);
+
+      setNewPlayerName('');
+      setNewPlayerFlat('');
+      setNewPlayerAge('');
+      setNewPlayerPhase('Phase 1');
+      setNewPlayerCategory('Male');
+      setSelectedSportsForNewPlayer([]);
+      setIsAddPlayerModalOpen(false);
+
+      alert(`Successfully added "${newPlayerName.trim()}" across ${newRecords.length} sport record(s)!`);
     });
   };
 
@@ -342,7 +399,7 @@ export default function SanviOlympicsPortal() {
             </button>
           </div>
           <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
-            <span>Active Sport: <strong className="text-amber-700">{activeSport.name}</strong></span>
+            <span>Active View: <strong className="text-amber-700">{showMasterSchedule ? '📅 Master Schedule Matrix' : activeSport.name}</strong></span>
             <span>|</span>
             <span className="text-emerald-600 font-bold">Total Records: {participants.length}</span>
             <span>|</span>
@@ -355,6 +412,9 @@ export default function SanviOlympicsPortal() {
         {isAdminMode && (
           <div className="flex flex-wrap items-center gap-2 bg-amber-50 p-2 rounded-xl border border-amber-200">
             <span className="text-[10px] font-black text-amber-800 uppercase px-1">ADMIN CONTROLS:</span>
+            <button onClick={() => setIsAddPlayerModalOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
+              ➕ Add Player
+            </button>
             <label className="cursor-pointer bg-amber-500 hover:bg-amber-600 text-white font-black px-3 py-1.5 rounded-lg text-xs shadow-sm transition">
               📁 Import CSV
               <input type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
@@ -390,6 +450,118 @@ export default function SanviOlympicsPortal() {
           </div>
         </div>
       </header>
+
+      {/* GLOBAL ADD PLAYER MODAL */}
+      {isAdminMode && isAddPlayerModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-900">➕ Add New Participant (Multi-Sport)</h3>
+              <button onClick={() => setIsAddPlayerModalOpen(false)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition">
+                ✕ Close
+              </button>
+            </div>
+
+            <form onSubmit={handleGlobalAddPlayer} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Player Full Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Rahul Sharma"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Flat / Wing</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. A-102"
+                    value={newPlayerFlat}
+                    onChange={(e) => setNewPlayerFlat(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Age</label>
+                  <input
+                    type="number"
+                    placeholder="e.g. 25"
+                    value={newPlayerAge}
+                    onChange={(e) => setNewPlayerAge(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Phase</label>
+                  <select
+                    value={newPlayerPhase}
+                    onChange={(e) => setNewPlayerPhase(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                  >
+                    <option value="Phase 1">Phase 1</option>
+                    <option value="Phase 2">Phase 2</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">Category</label>
+                  <select
+                    value={newPlayerCategory}
+                    onChange={(e) => setNewPlayerCategory(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none"
+                  >
+                    <option value="Kids">Kids</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">Select Sports <span className="text-red-500">*</span> (Select multiple to insert separate rows)</label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-48 overflow-y-auto p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                  {SPORTS_LIST.map((s) => {
+                    const isChecked = selectedSportsForNewPlayer.includes(s.name);
+                    return (
+                      <label key={s.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-slate-100 rounded-lg text-xs font-medium">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedSportsForNewPlayer([...selectedSportsForNewPlayer, s.name]);
+                            } else {
+                              setSelectedSportsForNewPlayer(selectedSportsForNewPlayer.filter(item => item !== s.name));
+                            }
+                          }}
+                          className="rounded border-slate-300 text-amber-600 focus:ring-amber-500"
+                        />
+                        <span>{s.name}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
+                <button type="button" onClick={() => setIsAddPlayerModalOpen(false)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-4 py-2 rounded-xl">
+                  Cancel
+                </button>
+                <button type="submit" className="bg-amber-500 hover:bg-amber-600 text-white font-black px-4 py-2 rounded-xl shadow">
+                  Save Player Records
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isAdminMode && (
         <AdminModule 
@@ -436,144 +608,175 @@ export default function SanviOlympicsPortal() {
         </div>
       </div>
 
-      <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-slate-300">
-        {SPORTS_LIST.map((sport) => (
-          <button
-            key={sport.id}
-            onClick={() => setActiveSport(sport)}
-            className={`px-4 py-2.5 rounded-xl text-xs font-black tracking-wider whitespace-nowrap transition shadow-sm ${
-              activeSport.id === sport.id
-                ? 'bg-amber-500 text-white shadow-amber-500/20'
-                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
-            }`}
-          >
-            {sport.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
-        <div>
-          <label className="text-xs font-bold text-slate-500 block mb-1.5">Game Choice Matching</label>
-          <button
-            onClick={() => setFilterByGameChoice(!filterByGameChoice)}
-            className={`w-full p-2.5 rounded-xl text-xs font-black border transition shadow-sm ${
-              filterByGameChoice ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
-            }`}
-          >
-            {filterByGameChoice ? `✓ Filtering "${activeSport.name}"` : 'Showing All Registrations'}
-          </button>
-        </div>
-
-        <div>
-          <label className="text-xs font-bold text-slate-500 block mb-1.5">Age Group Segregation</label>
-          <select value={selectedAgeGroup} onChange={(e) => setSelectedAgeGroup(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner">
-            <option>All Age Groups</option>
-            <option>Under 12 Kids</option>
-            <option>12 - 17 years Teens</option>
-            <option>18 - 55 years Adults</option>
-            <option>55+ years Seniors</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs font-bold text-slate-500 block mb-1.5">Phase Filter</label>
-          <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner">
-            <option>All Phases</option>
-            <option>Phase 1</option>
-            <option>Phase 2</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="text-xs font-bold text-slate-500 block mb-1.5">Category Filter</label>
-          <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner">
-            <option>All Categories</option>
-            <option>Kids</option>
-            <option>Male</option>
-            <option>Female</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="flex gap-4 border-b border-slate-200 pb-3">
-        <button onClick={() => setActiveSubTab('participants')} className={`text-xs font-black pb-1 transition ${activeSubTab === 'participants' ? 'text-amber-600 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-800'}`}>
-          🛡️ Participants ({filteredParticipants.length})
+      {/* Sports Navigation Bar + Master Schedule Matrix Toggle Button */}
+      <div className="flex flex-wrap items-center gap-2 pb-1">
+        <button
+          onClick={() => setShowMasterSchedule(true)}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black tracking-wider whitespace-nowrap transition shadow-sm ${
+            showMasterSchedule
+              ? 'bg-amber-600 text-white shadow-amber-500/25 ring-2 ring-amber-400'
+              : 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 hover:from-amber-400 hover:to-yellow-400 shadow'
+          }`}
+        >
+          📅 Master Schedule Matrix
         </button>
-        <button onClick={() => setActiveSubTab('scores')} className={`text-xs font-black pb-1 transition ${activeSubTab === 'scores' ? 'text-amber-600 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-800'}`}>
-          ⚔️ Tournament & Scoring Hub ({activeSport.name})
-        </button>
+
+        <div className="h-6 w-[1px] bg-slate-300 mx-1 hidden sm:block"></div>
+
+        <div className="flex gap-2 overflow-x-auto pb-3 scrollbar-thin scrollbar-thumb-slate-300 flex-1">
+          {SPORTS_LIST.map((sport) => (
+            <button
+              key={sport.id}
+              onClick={() => {
+                setShowMasterSchedule(false);
+                setActiveSport(sport);
+              }}
+              className={`px-4 py-2.5 rounded-xl text-xs font-black tracking-wider whitespace-nowrap transition shadow-sm ${
+                !showMasterSchedule && activeSport.id === sport.id
+                  ? 'bg-amber-500 text-white shadow-amber-500/20'
+                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+              }`}
+            >
+              {sport.name}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {activeSubTab === 'participants' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredParticipants.map((p) => {
-            const rawAge = p.age ?? p.Age ?? p.AGE ?? p.ageGroup ?? p.AgeGroup ?? '';
-            let displayAge = '';
-            const digits = rawAge.toString().match(/\d+/);
-            if (digits) {
-              displayAge = `Age: ${digits[0]}`;
-            } else {
-              displayAge = rawAge ? `Age: ${rawAge}` : 'Age: N/A';
-            }
+      {/* CONDITIONAL RENDERING: MASTER SCHEDULE MATRIX VS NORMAL SPORTS VIEW */}
+      {showMasterSchedule ? (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <MasterScheduleModule 
+            sportState={sportsData['chess'] || {}} 
+            categories={['Under 8 Years Kids', 'Under 12 Years Kids', '12 - 17 Years Teens', '18+ Years Adults']} 
+          />
+        </div>
+      ) : (
+        <>
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1.5">Game Choice Matching</label>
+              <button
+                onClick={() => setFilterByGameChoice(!filterByGameChoice)}
+                className={`w-full p-2.5 rounded-xl text-xs font-black border transition shadow-sm ${
+                  filterByGameChoice ? 'bg-emerald-600 text-white border-emerald-500' : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                {filterByGameChoice ? `✓ Filtering "${activeSport.name}"` : 'Showing All Registrations'}
+              </button>
+            </div>
 
-            const pid = p.id || p.regId || p.Registration_ID;
-            const playerSchedule = (pid && sportsData?.chess?.playerSchedules?.[pid]) || (pid && currentSportState?.playerSchedules?.[pid]);
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1.5">Age Group Segregation</label>
+              <select value={selectedAgeGroup} onChange={(e) => setSelectedAgeGroup(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner">
+                <option>All Age Groups</option>
+                <option>Under 12 Kids</option>
+                <option>12 - 17 years Teens</option>
+                <option>18 - 55 years Adults</option>
+                <option>55+ years Seniors</option>
+              </select>
+            </div>
 
-            return (
-              <div key={pid} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow transition">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-bold text-slate-900 text-sm">{p.name}</h4>
-                  <span className="text-[10px] bg-slate-100 text-amber-700 px-2 py-0.5 rounded border border-slate-200 font-semibold">ID: {p.regId || p.Registration_ID}</span>
-                </div>
-                <p className="text-xs text-amber-700 mt-1 font-medium">{p.flat || p.Flat} • {p.gameChoice || p.sport}</p>
-                
-                {playerSchedule && (
-                  <div className="mt-2.5 bg-amber-50 border border-amber-200 text-amber-900 px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
-                    <span>📅</span>
-                    <span>{playerSchedule.text || playerSchedule.scheduledText}</span>
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1.5">Phase Filter</label>
+              <select value={selectedPhase} onChange={(e) => setSelectedPhase(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner">
+                <option>All Phases</option>
+                <option>Phase 1</option>
+                <option>Phase 2</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-slate-500 block mb-1.5">Category Filter</label>
+              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl text-xs font-bold text-slate-800 outline-none shadow-inner">
+                <option>All Categories</option>
+                <option>Kids</option>
+                <option>Male</option>
+                <option>Female</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-4 border-b border-slate-200 pb-3">
+            <button onClick={() => setActiveSubTab('participants')} className={`text-xs font-black pb-1 transition ${activeSubTab === 'participants' ? 'text-amber-600 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-800'}`}>
+              🛡️ Participants ({filteredParticipants.length})
+            </button>
+            <button onClick={() => setActiveSubTab('scores')} className={`text-xs font-black pb-1 transition ${activeSubTab === 'scores' ? 'text-amber-600 border-b-2 border-amber-500' : 'text-slate-500 hover:text-slate-800'}`}>
+              ⚔️ Tournament & Scoring Hub ({activeSport.name})
+            </button>
+          </div>
+
+          {activeSubTab === 'participants' && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {filteredParticipants.map((p) => {
+                const rawAge = p.age ?? p.Age ?? p.AGE ?? p.ageGroup ?? p.AgeGroup ?? '';
+                let displayAge = '';
+                const digits = rawAge.toString().match(/\d+/);
+                if (digits) {
+                  displayAge = `Age: ${digits[0]}`;
+                } else {
+                  displayAge = rawAge ? `Age: ${rawAge}` : 'Age: N/A';
+                }
+
+                const pid = p.id || p.regId || p.Registration_ID;
+                const playerSchedule = (pid && sportsData?.chess?.playerSchedules?.[pid]) || (pid && currentSportState?.playerSchedules?.[pid]);
+
+                return (
+                  <div key={pid} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:shadow transition">
+                    <div className="flex justify-between items-start">
+                      <h4 className="font-bold text-slate-900 text-sm">{p.name}</h4>
+                      <span className="text-[10px] bg-slate-100 text-amber-700 px-2 py-0.5 rounded border border-slate-200 font-semibold">ID: {p.regId || p.Registration_ID}</span>
+                    </div>
+                    <p className="text-xs text-amber-700 mt-1 font-medium">{p.flat || p.Flat} • {p.gameChoice || p.sport}</p>
+                    
+                    {playerSchedule && (
+                      <div className="mt-2.5 bg-amber-50 border border-amber-200 text-amber-900 px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 shadow-sm">
+                        <span>📅</span>
+                        <span>{playerSchedule.text || playerSchedule.scheduledText}</span>
+                      </div>
+                    )}
+
+                    <div className="mt-3 flex justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-2">
+                      <span className="bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-amber-800 font-black">
+                        {displayAge}
+                      </span>
+                      <span className="text-emerald-600 font-bold">{p.phase || p.Phase}</span>
+                    </div>
                   </div>
-                )}
+                );
+              })}
+            </div>
+          )}
 
-                <div className="mt-3 flex justify-between text-[10px] text-slate-500 border-t border-slate-100 pt-2">
-                  <span className="bg-amber-50 border border-amber-200 px-2 py-0.5 rounded text-amber-800 font-black">
-                    {displayAge}
-                  </span>
-                  <span className="text-emerald-600 font-bold">{p.phase || p.Phase}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {activeSubTab === 'scores' && (
-        <div>
-          {activeSport.type === 'FOOTBALL_CUSTOM' && (
-            <FootballModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+          {activeSubTab === 'scores' && (
+            <div>
+              {activeSport.type === 'FOOTBALL_CUSTOM' && (
+                <FootballModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.type === 'AUCTION_TEAM' && activeSport.id === 'cricket' && (
+                <CricketModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.type === 'TABLE_TENNIS_CUSTOM' && (
+                <TableTennisModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.type === 'BADMINTON_CUSTOM' && (
+                <BadmintonModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.type === 'ADVANCED_CHESS' && (
+                <ChessAdvancedModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.type === 'ADVANCED_CARROM' && (
+                <CarromAdvancedModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.type === 'AUCTION_TEAM' && activeSport.id !== 'cricket' && activeSport.id !== 'table_tennis' && activeSport.id !== 'badminton' && (
+                <TeamAuctionModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.type === 'MARATHON' && (
+                <MarathonModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+            </div>
           )}
-          {activeSport.type === 'AUCTION_TEAM' && activeSport.id === 'cricket' && (
-            <CricketModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
-          {activeSport.type === 'TABLE_TENNIS_CUSTOM' && (
-            <TableTennisModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
-          {activeSport.type === 'BADMINTON_CUSTOM' && (
-            <BadmintonModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
-          {activeSport.type === 'ADVANCED_CHESS' && (
-            <ChessAdvancedModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
-          {activeSport.type === 'ADVANCED_CARROM' && (
-            <CarromAdvancedModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
-          {activeSport.type === 'AUCTION_TEAM' && activeSport.id !== 'cricket' && activeSport.id !== 'table_tennis' && activeSport.id !== 'badminton' && (
-            <TeamAuctionModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
-          {activeSport.type === 'MARATHON' && (
-            <MarathonModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
-          )}
-        </div>
+        </>
       )}
 
       {/* Sponsor Configuration Modal */}
