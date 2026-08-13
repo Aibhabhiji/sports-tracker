@@ -17,7 +17,7 @@ const SPORT_NAMES_MAP = {
 };
 
 export default function MasterScheduleModule({ sportsData = {}, categories = [] }) {
-  // Helper to aggregate ALL matches across ALL sports and ALL categories
+  // Helper to aggregate and clean up ALL valid scheduled matches across sports & categories
   const getAllScheduledMatches = () => {
     let allMatches = [];
     
@@ -30,14 +30,22 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [] 
         roundsList.forEach(r => {
           (r.groups || []).forEach(g => {
             (g.matches || []).forEach(m => {
-              allMatches.push({
-                ...m,
-                sportKey,
-                sportName,
-                category: catKey,
-                roundName: r.roundName,
-                groupName: g.groupName
-              });
+              // 🛡️ JUNK DATA FILTER: Exclude invalid, empty, or placeholder test matches
+              const hasValidPlayers = m?.playerA?.name && m?.playerB?.name && 
+                                     m.playerA.name.trim() !== '' && m.playerB.name.trim() !== '' &&
+                                     m.playerA.name !== 'Player A' && m.playerB.name !== 'Player B';
+              const hasValidDate = m?.scheduledDate && m.scheduledDate.trim() !== '';
+
+              if (hasValidPlayers && hasValidDate) {
+                allMatches.push({
+                  ...m,
+                  sportKey,
+                  sportName,
+                  category: catKey,
+                  roundName: r.roundName,
+                  groupName: g.groupName
+                });
+              }
             });
           });
         });
@@ -58,7 +66,7 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [] 
   // Group master matches by Date -> Time Slot
   const masterScheduleMatrix = {};
   allMasterMatches.forEach(m => {
-    const dKey = m.scheduledDate || '15Aug26';
+    const dKey = m.scheduledDate;
     const tKey = m.scheduledTimeSlot || '11 AM to 12 PM';
     if (!masterScheduleMatrix[dKey]) masterScheduleMatrix[dKey] = {};
     if (!masterScheduleMatrix[dKey][tKey]) masterScheduleMatrix[dKey][tKey] = [];
@@ -81,7 +89,7 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [] 
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider">📅 Master Schedule Matrix (All Sports & Categories)</h3>
-          <p className="text-xs text-slate-400 mt-0.5">One-glance timeline view organized by date and time slot across all tournament sports and categories.</p>
+          <p className="text-xs text-slate-400 mt-0.5">One-glance timeline view organized by date and time slot across all active tournament categories.</p>
         </div>
         
         <div className="flex flex-wrap gap-2">
@@ -101,7 +109,7 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [] 
       {/* Schedule Matrix Content */}
       {sortedDates.length === 0 ? (
         <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800 text-slate-400 space-y-3">
-          <p className="text-sm">No matches scheduled yet across any sport or category.</p>
+          <p className="text-sm">No valid matches scheduled yet across any sport or category.</p>
           <p className="text-xs text-slate-500">Initialize and start rounds in your tournament modules to populate the timeline matrix.</p>
         </div>
       ) : (
@@ -144,7 +152,7 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [] 
                             </div>
 
                             <div className="text-xs font-bold text-slate-100 flex items-center justify-between pt-1">
-                              <span>{m.playerA?.name || 'Player A'} <span className="text-amber-400 font-normal">vs</span> {m.playerB?.name || 'Player B'}</span>
+                              <span>{m.playerA.name} <span className="text-amber-400 font-normal">vs</span> {m.playerB.name}</span>
                             </div>
 
                             {m.isLocked && m.scoreA !== null && m.scoreB !== null && (
