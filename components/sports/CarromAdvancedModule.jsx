@@ -1,18 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export default function CarromAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
-  // Standard categories + dynamic categories extracted from participants
-  const defaultCategories = ['Open', 'Under 12 Kids', '12 - 17 years Teens', '18 - 55 years Adults', '55+ years Seniors', 'Kids', 'Male', 'Female', 'Under 16', 'Veterans'];
-  const dynamicCategories = Array.from(new Set(
-    (participants || []).flatMap(p => [
-      p.category, p.Category, p.ageGroup, p.AgeGroup, p.gender, p.Gender
-    ].filter(Boolean))
-  ));
-  const categories = Array.from(new Set([...(sportState?.categories || []), ...defaultCategories, ...dynamicCategories]));
+  // Strict categories matching Chess module
+  const categories = [
+    'Under 8 Kids',
+    'Under 12 Kids',
+    '12 - 17 Years',
+    '18+ Years'
+  ];
 
-  const [selectedCategory, setSelectedCategory] = useState('Open');
+  const [selectedCategory, setSelectedCategory] = useState('Under 12 Kids');
   const [carromTab, setCarromTab] = useState('participants');
 
   // Per-category rounds & teams stored in sportState
@@ -34,6 +33,12 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
   const [editingMatchScheduleId, setEditingMatchScheduleId] = useState(null);
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
+
+  // Update defaults based on selected category
+  useEffect(() => {
+    setAdvancementCount(2);
+    setGroupSize(4);
+  }, [selectedCategory]);
 
   // Helper to format Date object or Date string to '15Aug26'
   const formatDateShort = (dateObj) => {
@@ -193,32 +198,29 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     };
   };
 
-  // Filter participants for current category
+  // Filter participants specifically for selected category matching chess logic
   const rawFiltered = (participants || []).filter(p => {
-    if (!selectedCategory || selectedCategory === 'Open' || selectedCategory === 'All') return true;
+    if (!selectedCategory || selectedCategory === 'All') return true;
 
     const catStr = selectedCategory.toLowerCase();
     const pCat = (p.category || p.Category || '').toString().toLowerCase();
     const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
-    const pGender = (p.gender || p.Gender || '').toString().toLowerCase();
     const pAge = (p.age || p.Age || '').toString();
+    const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
 
-    if (pCat === catStr || pAgeGroup === catStr || pGender === catStr) return true;
-    if (catStr.includes('under 12') || catStr.includes('kids')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '99', 10);
-      return num < 12 || pCat.includes('kid') || pAgeGroup.includes('kid');
+    if (pCat === catStr || pAgeGroup === catStr) return true;
+
+    if (catStr.includes('under 8')) {
+      return (numAge > 0 && numAge < 8) || pCat.includes('under 8') || pAgeGroup.includes('under 8');
     }
-    if (catStr.includes('12 - 17') || catStr.includes('teens') || catStr.includes('under 16')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '99', 10);
-      return (num >= 12 && num <= 17) || num < 16 || pCat.includes('teen') || pAgeGroup.includes('teen');
+    if (catStr.includes('under 12')) {
+      return (numAge >= 8 && numAge < 12) || pCat.includes('under 12') || pAgeGroup.includes('under 12');
     }
-    if (catStr.includes('18 - 55') || catStr.includes('adults')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
-      return (num >= 18 && num <= 55) || pCat.includes('adult') || pAgeGroup.includes('adult');
+    if (catStr.includes('12 - 17') || catStr.includes('teens')) {
+      return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17') || pCat.includes('teen') || pAgeGroup.includes('teen');
     }
-    if (catStr.includes('55+') || catStr.includes('seniors') || catStr.includes('veterans')) {
-      const num = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
-      return num >= 55 || pCat.includes('senior') || pCat.includes('veteran');
+    if (catStr.includes('18+') || catStr.includes('adult')) {
+      return numAge >= 18 || pCat.includes('adult') || pCat.includes('senior') || pCat.includes('18+') || pAgeGroup.includes('adult') || pAgeGroup.includes('senior') || numAge === 0;
     }
 
     return pCat.includes(catStr) || pAgeGroup.includes(catStr);
