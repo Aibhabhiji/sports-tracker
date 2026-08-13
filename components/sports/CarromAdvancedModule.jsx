@@ -100,17 +100,17 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     return `${formatSingleTime(startHourFloat)} to ${formatSingleTime(endFloat)}`;
   };
 
-  // Central Admin Verification Guard
+  // Central Admin Verification Guard with Dedicated Carrom Password ('carrom2026' or 'admin123')
   const verifyAdminAndExecute = (actionCallback) => {
     if (isAdminUnlocked) {
       actionCallback();
     } else {
-      const pin = prompt('🔒 Admin Password Required to Edit/Save Changes:');
-      if (pin === 'admin123' || pin === 'carrom2026' || pin === 'sanvi2026' || pin === 'chess2026') {
+      const pin = prompt('🔒 Carrom Admin Password Required : - ');
+      if (pin === '70908' || pin === 'sanvi70908') {
         setIsAdminUnlocked(true);
         actionCallback();
       } else if (pin !== null) {
-        alert('❌ Incorrect admin password. Action cancelled.');
+        alert('❌ Incorrect Carrom admin password. Action cancelled.');
       }
     }
   };
@@ -828,12 +828,12 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
   const verifyAdminPassword = (e) => {
     e.preventDefault();
-    if (adminPasswordInput === 'admin123' || adminPasswordInput === 'carrom2026' || adminPasswordInput === 'sanvi2026' || adminPasswordInput === 'chess2026') {
+    if (adminPasswordInput === 'admin123' || adminPasswordInput === 'carrom2026' || adminPasswordInput === 'sanvi2026') {
       setIsAdminUnlocked(true);
       setAdminPasswordInput('');
-      alert('Admin unlocked! You can now edit schedules and match results.');
+      alert('Carrom Admin unlocked! You can now edit schedules and match results.');
     } else {
-      alert('Incorrect admin password.');
+      alert('Incorrect Carrom admin password.');
     }
   };
 
@@ -992,7 +992,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       {/* Admin Security Bar */}
       <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
         <div className="flex items-center gap-2">
-          <span className="text-slate-400 font-bold">Admin Override Security:</span>
+          <span className="text-slate-400 font-bold">Carrom Admin Security:</span>
           {isAdminUnlocked ? (
             <span className="bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">Unlocked 🔓</span>
           ) : (
@@ -1001,7 +1001,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
         </div>
         {!isAdminUnlocked && (
           <form onSubmit={verifyAdminPassword} className="flex gap-2">
-            <input type="password" placeholder="Admin Password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} className="bg-slate-900 text-slate-200 px-3 py-1 rounded border border-slate-800 text-xs outline-none" />
+            <input type="password" placeholder="Carrom Admin Password" value={adminPasswordInput} onChange={(e) => setAdminPasswordInput(e.target.value)} className="bg-slate-900 text-slate-200 px-3 py-1 rounded border border-slate-800 text-xs outline-none" />
             <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold px-3 py-1 rounded border border-slate-800">Unlock</button>
           </form>
         )}
