@@ -643,15 +643,16 @@ export default function SanviOlympicsPortal() {
         </div>
       </div>
 
-      {/* CONDITIONAL RENDERING: MASTER SCHEDULE MATRIX VS NORMAL SPORTS VIEW */}
+	{/* CONDITIONAL RENDERING: MASTER SCHEDULE MATRIX VS NORMAL SPORTS VIEW */}
       {showMasterSchedule ? (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <MasterScheduleModule 
-            sportState={sportsData['chess'] || {}} 
+            sportsData={sportsData} 
             categories={['Under 8 Years Kids', 'Under 12 Years Kids', '12 - 17 Years Teens', '18+ Years Adults']} 
           />
         </div>
       ) : (
+        
         <>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
             <div>
