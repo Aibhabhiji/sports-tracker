@@ -231,13 +231,16 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [],
                 <div className="space-y-4">
                   {Object.entries(timeSlots).map(([timeKey, matchesList]) => (
                     <div key={timeKey} className="bg-slate-950 p-4 rounded-xl border border-slate-800/80 space-y-3">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="font-black text-rose-300 bg-rose-950/70 px-3 py-1 rounded-lg border border-rose-500/40">
-                          ⏰ {timeKey}
-                        </span>
-                        <span className="text-[11px] text-slate-400 font-bold">
-                          {matchesList.length} match(es) scheduled in this slot
-                        </span>
+                      {/* Prominent Time Slot & Match Count Header */}
+                      <div className="flex flex-wrap justify-between items-center gap-2 text-xs">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-rose-300 bg-rose-950/70 px-3 py-1.5 rounded-lg border border-rose-500/40 text-sm">
+                            ⏰ {timeKey}
+                          </span>
+                          <span className="bg-amber-500/20 text-amber-300 font-black px-2.5 py-1 rounded-md border border-amber-500/30 text-xs">
+                            {matchesList.length} Match{matchesList.length > 1 ? 'es' : ''} in this slot
+                          </span>
+                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
