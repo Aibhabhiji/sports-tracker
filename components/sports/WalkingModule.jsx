@@ -6,7 +6,8 @@ import * as XLSX from 'xlsx';
 export default function WalkingModule({ sportState = {}, onUpdateSportState }) {
   const registeredParticipants = sportState.participants || [];
 
-  const groups = sportState.walkingGroups || [
+  // Read groups directly from sportState, fallback to default only if empty
+  const groups = sportState.walkingGroups && sportState.walkingGroups.length > 0 ? sportState.walkingGroups : [
     { 
       id: 'group_1', 
       name: 'Male Group 2', 
@@ -14,22 +15,14 @@ export default function WalkingModule({ sportState = {}, onUpdateSportState }) {
       winnerCount: 3, 
       requiredLaps: 2,
       lapColors: { 
-        1: '#3b82f6', // Blue
-        2: '#eab308', // Yellow
-        3: '#10b981', // Emerald
-        4: '#ec4899', // Pink
-        5: '#8b5cf6', // Purple
-        6: '#f97316', // Orange
-        7: '#06b6d4', // Cyan
-        8: '#14b8a6', // Teal
-        9: '#f43f5e', // Rose
-        10: '#a855f7' // Violet
+        1: '#3b82f6', 2: '#eab308', 3: '#10b981', 4: '#ec4899', 
+        5: '#8b5cf6', 6: '#f97316', 7: '#06b6d4', 8: '#14b8a6', 9: '#f43f5e', 10: '#a855f7' 
       },
       participants: [] 
     }
   ];
   
-  const [activeGroupId, setActiveGroupId] = useState(groups[0]?.id || 'group_1');
+  const [activeGroupId, setActiveGroupId] = useState(() => groups[0]?.id || 'group_1');
   const [activeTab, setActiveTab] = useState('scorekeeper'); // 'scorekeeper', 'roster', 'lapColors'
   const [newParticipantName, setNewParticipantName] = useState('');
   const [importSummary, setImportSummary] = useState(null);
@@ -57,7 +50,7 @@ export default function WalkingModule({ sportState = {}, onUpdateSportState }) {
         setSecondsElapsed((prev) => prev + 1);
       }, 1000);
     } else if (allFinished && isTimerRunning) {
-      setIsTimerRunning(false); // Automatically stop timer when race concludes
+      setIsTimerRunning(false);
     }
     return () => clearInterval(interval);
   }, [isTimerRunning, allFinished]);
@@ -69,7 +62,9 @@ export default function WalkingModule({ sportState = {}, onUpdateSportState }) {
   };
 
   const handleUpdateGroups = (updatedGroups) => {
-    onUpdateSportState({ walkingGroups: updatedGroups });
+    if (onUpdateSportState) {
+      onUpdateSportState({ ...sportState, walkingGroups: updatedGroups });
+    }
   };
 
   const handleUpdateActiveGroup = (updatedGroup) => {
@@ -88,7 +83,7 @@ export default function WalkingModule({ sportState = {}, onUpdateSportState }) {
         const data = new Uint8Array(evt.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
 
-        const newGroups = [];
+        const newGroups = [...groups]; // Keep existing groups or merge
         let totalImported = 0;
         let matchedCount = 0;
         let unmatchedCount = 0;
@@ -141,26 +136,35 @@ export default function WalkingModule({ sportState = {}, onUpdateSportState }) {
           }
 
           if (participants.length > 0) {
-            newGroups.push({
-              id: `group_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-              name: sheetName.trim(),
-              isCompleted: false,
-              winnerCount: 3,
-              requiredLaps: 2,
-              lapColors: { 
-                1: '#3b82f6', 2: '#eab308', 3: '#10b981', 4: '#ec4899', 
-                5: '#8b5cf6', 6: '#f97316', 7: '#06b6d4', 8: '#14b8a6', 9: '#f43f5e', 10: '#a855f7' 
-              },
-              participants,
-            });
+            const existingGroupIndex = newGroups.findIndex(g => g.name.toLowerCase() === sheetName.trim().toLowerCase());
+            if (existingGroupIndex >= 0) {
+              // Merge participants if group already exists
+              newGroups[existingGroupIndex] = {
+                ...newGroups[existingGroupIndex],
+                participants: participants
+              };
+            } else {
+              newGroups.push({
+                id: `group_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+                name: sheetName.trim(),
+                isCompleted: false,
+                winnerCount: 3,
+                requiredLaps: 2,
+                lapColors: { 
+                  1: '#3b82f6', 2: '#eab308', 3: '#10b981', 4: '#ec4899', 
+                  5: '#8b5cf6', 6: '#f97316', 7: '#06b6d4', 8: '#14b8a6', 9: '#f43f5e', 10: '#a855f7' 
+                },
+                participants,
+              });
+            }
           }
         });
 
         if (newGroups.length > 0) {
           handleUpdateGroups(newGroups);
-          setActiveGroupId(newGroups[0].id);
+          setActiveGroupId(newGroups[newGroups.length - 1].id);
           setImportSummary({ totalGroups: newGroups.length, totalImported, matchedCount, unmatchedCount });
-          alert(`✅ Successfully imported ${newGroups.length} walking sheets!`);
+          alert(`✅ Successfully imported walking sheets!`);
         } else {
           alert('⚠️ Could not find valid participant tables.');
         }
@@ -392,9 +396,7 @@ export default function WalkingModule({ sportState = {}, onUpdateSportState }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {(activeGroup.participants || []).map((player) => {
                 const isFinished = player.laps >= requiredLaps;
-                // Determine the current lap the runner is working on or has reached
                 const currentLap = Math.min(player.laps + 1, requiredLaps);
-                // Get the exact configured color for the current lap
                 const activeLapColor = lapColors[isFinished ? requiredLaps : currentLap] || '#3b82f6';
 
                 return (
