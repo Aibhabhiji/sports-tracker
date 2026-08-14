@@ -7,6 +7,7 @@ import TeamAuctionModule from '@/components/sports/TeamAuctionModule';
 import CarromAdvancedModule from '@/components/sports/CarromAdvancedModule';
 import ChessAdvancedModule from '@/components/sports/ChessAdvancedModule';
 import MarathonModule from '@/components/sports/MarathonModule';
+import WalkingModule from '@/components/sports/WalkingModule';
 import CricketModule from '@/components/sports/CricketModule';
 import FootballModule from '@/components/sports/FootballModule';
 import TableTennisModule from '@/components/sports/TableTennisModule';
@@ -643,20 +644,19 @@ export default function SanviOlympicsPortal() {
         </div>
       </div>
 
-	{/* CONDITIONAL RENDERING: MASTER SCHEDULE MATRIX VS NORMAL SPORTS VIEW */}
-		  {showMasterSchedule ? (
-			<div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-			  <MasterScheduleModule 
-				sportsData={sportsData} 
-				categories={['Under 8 Years Kids', 'Under 12 Years Kids', '12 - 17 Years Teens', '18+ Years Adults']} 
-				onUpdateSportsData={(newSportsData) => {
-				  setSportsData(newSportsData);
-				  saveToCentralServer(participants, newSportsData, sponsors);
-				}}
-			  />
-			</div>
-		  ) : (
-        
+      {/* CONDITIONAL RENDERING: MASTER SCHEDULE MATRIX VS NORMAL SPORTS VIEW */}
+      {showMasterSchedule ? (
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+          <MasterScheduleModule 
+            sportsData={sportsData} 
+            categories={['Under 8 Years Kids', 'Under 12 Years Kids', '12 - 17 Years Teens', '18+ Years Adults']} 
+            onUpdateSportsData={(newSportsData) => {
+              setSportsData(newSportsData);
+              saveToCentralServer(participants, newSportsData, sponsors);
+            }}
+          />
+        </div>
+      ) : (
         <>
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm grid grid-cols-1 sm:grid-cols-4 gap-4 items-center">
             <div>
@@ -772,6 +772,9 @@ export default function SanviOlympicsPortal() {
               )}
               {activeSport.type === 'ADVANCED_CARROM' && (
                 <CarromAdvancedModule participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
+              )}
+              {activeSport.id === 'walking' && (
+                <WalkingModule sportState={currentSportState} onUpdateSportState={updateSportState} />
               )}
               {activeSport.type === 'AUCTION_TEAM' && activeSport.id !== 'cricket' && activeSport.id !== 'table_tennis' && activeSport.id !== 'badminton' && (
                 <TeamAuctionModule sportName={activeSport.name} participants={filteredParticipants} sportState={currentSportState} onUpdateSportState={updateSportState} />
