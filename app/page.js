@@ -14,6 +14,7 @@ import TableTennisModule from '@/components/sports/TableTennisModule';
 import BadmintonModule from '@/components/sports/BadmintonModule';
 import AdminModule from '@/components/AdminModule';
 import MasterScheduleModule from '@/components/MasterScheduleModule';
+import SportsScheduleModule from '@/components/sports/SportsScheduleModule'; // 📅 Newly integrated Sports Schedule & SPOC module
 
 const SPORTS_LIST = [
   { id: 'cricket', name: 'Cricket', type: 'AUCTION_TEAM' },
@@ -94,6 +95,9 @@ export default function SanviOlympicsPortal() {
 
   // Master Schedule Matrix View Toggle State (Zero impact on existing logic)
   const [showMasterSchedule, setShowMasterSchedule] = useState(false);
+  
+  // 📅 Sports Schedule & SPOC's View Toggle State (Zero impact on existing logic)
+  const [showSportsSchedule, setShowSportsSchedule] = useState(false);
 
   const [filterByGameChoice, setFilterByGameChoice] = useState(true);
   const [selectedPhase, setSelectedPhase] = useState('All Phases');
@@ -400,7 +404,7 @@ export default function SanviOlympicsPortal() {
             </button>
           </div>
           <div className="text-xs text-slate-500 mt-1 flex items-center gap-3">
-            <span>Active View: <strong className="text-amber-700">{showMasterSchedule ? '📅 Master Schedule Matrix' : activeSport.name}</strong></span>
+            <span>Active View: <strong className="text-amber-700">{showSportsSchedule ? '📅 Sports Schedule & SPOC\'s' : showMasterSchedule ? '📅 Master Schedule Matrix' : activeSport.name}</strong></span>
             <span>|</span>
             <span className="text-emerald-600 font-bold">Total Records: {participants.length}</span>
             <span>|</span>
@@ -609,14 +613,31 @@ export default function SanviOlympicsPortal() {
         </div>
       </div>
 
-      {/* Sports Navigation Bar + Master Schedule Matrix Toggle Button */}
+      {/* Sports Navigation Bar + Master Schedule Matrix & Sports Schedule Toggles */}
       <div className="flex flex-wrap items-center gap-2 pb-1">
         <button
-          onClick={() => setShowMasterSchedule(true)}
+          onClick={() => {
+            setShowMasterSchedule(false);
+            setShowSportsSchedule(true);
+          }}
+          className={`px-4 py-2.5 rounded-xl text-xs font-black tracking-wider whitespace-nowrap transition shadow-sm ${
+            showSportsSchedule
+              ? 'bg-amber-600 text-white shadow-amber-500/25 ring-2 ring-amber-400'
+              : 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 hover:from-amber-400 hover:to-yellow-400 shadow'
+          }`}
+        >
+          📅 Sports Schedule & SPOC's
+        </button>
+
+        <button
+          onClick={() => {
+            setShowSportsSchedule(false);
+            setShowMasterSchedule(true);
+          }}
           className={`px-4 py-2.5 rounded-xl text-xs font-black tracking-wider whitespace-nowrap transition shadow-sm ${
             showMasterSchedule
               ? 'bg-amber-600 text-white shadow-amber-500/25 ring-2 ring-amber-400'
-              : 'bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 hover:from-amber-400 hover:to-yellow-400 shadow'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
           }`}
         >
           📅 Master Schedule Matrix
@@ -629,11 +650,12 @@ export default function SanviOlympicsPortal() {
             <button
               key={sport.id}
               onClick={() => {
+                setShowSportsSchedule(false);
                 setShowMasterSchedule(false);
                 setActiveSport(sport);
               }}
               className={`px-4 py-2.5 rounded-xl text-xs font-black tracking-wider whitespace-nowrap transition shadow-sm ${
-                !showMasterSchedule && activeSport.id === sport.id
+                !showSportsSchedule && !showMasterSchedule && activeSport.id === sport.id
                   ? 'bg-amber-500 text-white shadow-amber-500/20'
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
@@ -644,8 +666,15 @@ export default function SanviOlympicsPortal() {
         </div>
       </div>
 
-      {/* CONDITIONAL RENDERING: MASTER SCHEDULE MATRIX VS NORMAL SPORTS VIEW */}
-      {showMasterSchedule ? (
+      {/* CONDITIONAL RENDERING: SPORTS SCHEDULE VS MASTER SCHEDULE MATRIX VS NORMAL SPORTS VIEW */}
+      {showSportsSchedule ? (
+        <div className="bg-[#0b0f19] p-6 rounded-2xl border border-slate-800 shadow-xl">
+          <SportsScheduleModule 
+            sportState={currentSportState} 
+            onUpdateSportState={updateSportState} 
+          />
+        </div>
+      ) : showMasterSchedule ? (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <MasterScheduleModule 
             sportsData={sportsData} 
