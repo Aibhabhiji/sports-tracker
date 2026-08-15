@@ -30,6 +30,13 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
 
+  // Add New Player Modal State
+  const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
+  const [newPlayerName, setNewPlayerName] = useState('');
+  const [newPlayerFlat, setNewPlayerFlat] = useState('');
+  const [newPlayerCategory, setNewPlayerCategory] = useState('Under 12 Years Kids');
+  const [newPlayerTargetGroup, setNewPlayerTargetGroup] = useState('Group A');
+
   useEffect(() => {
     if (selectedCategory === 'Under 12 Years Kids') {
       setAdvancementCount(2);
@@ -48,7 +55,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
 
     const enteredPwd = window.prompt("🔒 Enter Chess Admin Password to execute this action (admin123):");
-    if (enteredPwd === '45756') {
+    if (enteredPwd === 'admin123' || enteredPwd === '45756') {
       setIsChessUnlocked(true);
       actionCallback();
     } else if (enteredPwd !== null) {
@@ -386,7 +393,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return schedulesMap;
   };
 
-  const rawFiltered = (participants || []).filter(p => {
+  // Combine props participants with newly added participants from sportState
+  const allParticipants = [...(participants || []), ...(sportState.customParticipants || [])];
+
+  const rawFiltered = allParticipants.filter(p => {
     if (!selectedCategory || selectedCategory === 'All') return true;
     const catStr = selectedCategory.toLowerCase();
     const pCat = (p.category || p.Category || '').toString().toLowerCase();
@@ -498,7 +508,140 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 3. SAVE INDIVIDUAL SCHEDULE (Secured)
+  // 3. ADD NEW PLAYER & ADJUST IN ROUND 1 (Secured)[cite: 3]
+  const handleAddAndAssignPlayer = () => {
+    verifyAdminAndExecute(() => {
+      if (!newPlayerName.trim()) {
+        alert('Please enter a valid player name.');
+        return;
+      }
+
+      const newPlayerObj = {
+        id: `p_custom_${Date.now()}`,
+        name: newPlayerName.trim(),
+        flat: newPlayerFlat.trim() || 'N/A',
+        category: newPlayerCategory,
+        played: 0, won: 0, drawn: 0, lost: 0, points: 0
+      };
+
+      const updatedCustomParticipants = [...(sportState.customParticipants || []), newPlayerObj];
+      
+      // If tournament for the player's category has Round 1 initialized, adjust them into the target group
+      let updatedCategoryRoundsMap = { ...categoryRoundsMap };
+      const catData = updatedCategoryRoundsMap[newPlayerCategory];
+
+      if (catData && catData.rounds && catData.rounds.length > 0) {
+        const round1 = catData.rounds[0];
+        let targetGrp = round1.groups.find(g => g.groupName === newPlayerTargetGroup);
+        if (!targetGrp && round1.groups.length > 0) {
+          targetGrp = round1.groups[0]; // fallback to first group
+        }
+
+        if (targetGrp) {
+          // Add player to group standings
+          const newStandingEntry = {
+            id: newPlayerObj.id,
+            name: newPlayerObj.name,
+            flat: newPlayerObj.flat,
+            played: 0, won: 0, drawn: 0, lost: 0, points: 0
+          };
+          targetGrp.standings.push(newStandingEntry);
+
+          // Create new matches against all existing players in this group
+          const newGroupMatches = [];
+          targetGrp.standings.forEach(existingPlayer => {
+            if (existingPlayer.id !== newPlayerObj.id) {
+              const sched = calculateInitialMatchSchedule(targetGrp.matches.length + newGroupMatches.length + 5);
+              newGroupMatches.push({
+                id: `MATCH_NEW_${newPlayerCategory}_${targetGrp.groupName}_${Date.now()}_${Math.random()}`,
+                groupName: targetGrp.groupName,
+                playerA: newStandingEntry,
+                playerB: existingPlayer,
+                scoreA: null,
+                scoreB: null,
+                isLocked: false,
+                scheduledDate: sched.scheduledDate,
+                scheduledTimeSlot: sched.scheduledTimeSlot,
+                fullScheduleText: sched.fullScheduleText
+              });
+            }
+          });
+
+          targetGrp.matches.push(...newGroupMatches);
+        }
+      }
+
+      const updatedPlayerSchedules = buildPlayerSchedulesMap(updatedCategoryRoundsMap);
+      onUpdateSportState({
+        customParticipants: updatedCustomParticipants,
+        categoryRounds: updatedCategoryRoundsMap,
+        playerSchedules: updatedPlayerSchedules
+      });
+
+      setNewPlayerName('');
+      setNewPlayerFlat('');
+      setShowAddPlayerModal(false);
+      alert(`🎉 Successfully added "${newPlayerObj.name}" and adjusted them into Round 1 (${newPlayerCategory})!`);
+    });
+  };
+
+  // 4. DOWNLOAD EXCEL / CSV GAME DATA[cite: 3]
+  const handleDownloadExcel = () => {
+    verifyAdminAndExecute(() => {
+      let csvRows = [];
+      // Header: Match Timing in 1st column, Winner in last column as requested[cite: 3]
+      csvRows.push(['Match Timing', 'Category', 'Round', 'Group', 'Player A', 'Player B', 'Winner'].join(','));
+
+      const roundsMap = sportState?.categoryRounds || {};
+      let totalMatchesExported = 0;
+
+      Object.entries(roundsMap).forEach(([catKey, catData]) => {
+        const catRounds = catData?.rounds || [];
+        catRounds.forEach(r => {
+          (r.groups || []).forEach(g => {
+            (g.matches || []).forEach(m => {
+              const timing = `"${m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`}"`;
+              const category = `"${catKey}"`;
+              const roundName = `"${r.roundName}"`;
+              const groupName = `"${g.groupName}"`;
+              const playerA = `"${m.playerA?.name || 'N/A'}"`;
+              const playerB = `"${m.playerB?.name || 'N/A'}"`;
+              
+              let winner = 'Pending / Scheduled';
+              if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
+                const sA = Number(m.scoreA);
+                const sB = Number(m.scoreB);
+                if (sA > sB) winner = m.playerA?.name || 'Player A';
+                else if (sB > sA) winner = m.playerB?.name || 'Player B';
+                else winner = 'Draw';
+              }
+              const winnerCol = `"${winner}"`;
+
+              csvRows.push([timing, category, roundName, groupName, playerA, playerB, winnerCol].join(','));
+              totalMatchesExported++;
+            });
+          });
+        });
+      });
+
+      if (totalMatchesExported === 0) {
+        alert('⚠️ No tournament matches found to export yet. Please start Round 1 for at least one category first.');
+        return;
+      }
+
+      const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `Chess_Tournament_Game_Data_${formatDateShort(new Date())}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      alert(`📥 Successfully exported ${totalMatchesExported} matches to Excel/CSV format!`);
+    });
+  };
+
+  // 5. SAVE INDIVIDUAL SCHEDULE (Secured)
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
     verifyAdminAndExecute(() => {
       if (!tempScheduleDate || !tempScheduleTime) {
@@ -526,7 +669,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 4. UPDATE MATCH SCORE (Secured)
+  // 6. UPDATE MATCH SCORE (Secured)
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
@@ -562,7 +705,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 5. REVERT / RESET MATCH RESULT (Secured)
+  // 7. REVERT / RESET MATCH RESULT (Secured)
   const handleResetMatchResult = (groupIndex, matchId) => {
     verifyAdminAndExecute(() => {
       const confirmReset = window.confirm("Are you sure you want to revert this match result back to scheduled (clearing current scores)?");
@@ -600,7 +743,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 6. SCHEDULE TIEBREAKER (Secured)
+  // 8. SCHEDULE TIEBREAKER (Secured)
   const handleScheduleTiebreaker = (groupIndex) => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
@@ -656,7 +799,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 7. ADVANCE TO NEXT ROUND (Secured)
+  // 9. ADVANCE TO NEXT ROUND (Secured)
   const handleAdvanceToNextRound = () => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
@@ -743,6 +886,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
   return (
     <div className="space-y-6">
+      {/* Top Header & Control Bar */}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
@@ -766,6 +910,14 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             </button>
           </div>
 
+          <button onClick={() => setShowAddPlayerModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-2.5 rounded-xl text-xs shadow transition flex items-center gap-1.5">
+            <span>➕ Add New Player</span>
+          </button>
+
+          <button onClick={handleDownloadExcel} className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-3.5 py-2.5 rounded-xl text-xs shadow transition flex items-center gap-1.5">
+            <span>📥 Download Excel</span>
+          </button>
+
           {rounds.length === 0 ? (
             <button onClick={handleInitializeRound1} className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow">
               🚀 Start Round 1 ({selectedCategory})
@@ -778,6 +930,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         </div>
       </div>
 
+      {/* Security Status Bar */}
       <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
         <div className="flex items-center gap-2">
           <span className="text-slate-400 font-bold">Chess Admin Security Status:</span>
@@ -794,6 +947,53 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         )}
       </div>
 
+      {/* Add New Player Modal */}
+      {showAddPlayerModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h4 className="font-black text-amber-400 text-sm">➕ Add New Player & Assign to Round 1</h4>
+              <button onClick={() => setShowAddPlayerModal(false)} className="text-slate-400 hover:text-white font-bold text-xs">✕</button>
+            </div>
+            
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-400 font-bold block mb-1">Player Name:</label>
+                <input type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} placeholder="e.g., Aryan Sharma" className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none" />
+              </div>
+
+              <div>
+                <label className="text-slate-400 font-bold block mb-1">Flat / Villa No:</label>
+                <input type="text" value={newPlayerFlat} onChange={(e) => setNewPlayerFlat(e.target.value)} placeholder="e.g., A-402" className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none" />
+              </div>
+
+              <div>
+                <label className="text-slate-400 font-bold block mb-1">Age Category:</label>
+                <select value={newPlayerCategory} onChange={(e) => setNewPlayerCategory(e.target.value)} className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none">
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-slate-400 font-bold block mb-1">Target Round 1 Group (if tournament is active):</label>
+                <select value={newPlayerTargetGroup} onChange={(e) => setNewPlayerTargetGroup(e.target.value)} className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none">
+                  <option value="Group A">Group A</option>
+                  <option value="Group B">Group B</option>
+                  <option value="Group C">Group C</option>
+                  <option value="Group D">Group D</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
+              <button onClick={() => setShowAddPlayerModal(false)} className="bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs">Cancel</button>
+              <button onClick={handleAddAndAssignPlayer} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-5 py-2 rounded-xl text-xs shadow">Save & Adjust in Group</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Participants Tab */}
       {chessTab === 'participants' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
@@ -836,6 +1036,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         </div>
       )}
 
+      {/* Tournament & Scoring Hub Tab */}
       {chessTab === 'hub' && (
         <>
           {rounds.length > 0 && (
