@@ -11,7 +11,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   ];
 
   const [selectedCategory, setSelectedCategory] = useState('Under 12 Years Kids');
-  const [chessTab, setChessTab] = useState('participants');
+  const [chessTab, setChessTab] = useState('participants'); // 'participants' | 'hub' | 'duplicates'
   
   const categoryRoundsMap = sportState?.categoryRounds || {};
   const currentCategoryData = categoryRoundsMap[selectedCategory] || { rounds: [], currentRoundIndex: 0 };
@@ -23,19 +23,24 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   
   // Dedicated Chess Module Security State (Password: admin123)
   const [isChessUnlocked, setIsChessUnlocked] = useState(false);
-  const [chessPasswordInput, setChessPasswordInput] = useState('');
 
   // Track match schedule editing
   const [editingMatchScheduleId, setEditingMatchScheduleId] = useState(null);
   const [tempScheduleDate, setTempScheduleDate] = useState('');
   const [tempScheduleTime, setTempScheduleTime] = useState('');
 
-  // Add New Player Modal State
+  // New Player Addition Modal State
   const [showAddPlayerModal, setShowAddPlayerModal] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [newPlayerFlat, setNewPlayerFlat] = useState('');
-  const [newPlayerCategory, setNewPlayerCategory] = useState('Under 12 Years Kids');
-  const [newPlayerTargetGroup, setNewPlayerTargetGroup] = useState('Group A');
+  const [newPlayerAge, setNewPlayerAge] = useState('');
+
+  // Local override for participants list to support merging/removing duplicates dynamically
+  const [localParticipants, setLocalParticipants] = useState(participants);
+
+  useEffect(() => {
+    setLocalParticipants(participants);
+  }, [participants]);
 
   useEffect(() => {
     if (selectedCategory === 'Under 12 Years Kids') {
@@ -55,7 +60,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
 
     const enteredPwd = window.prompt("🔒 Enter Chess Admin Password to execute this action (admin123):");
-    if (enteredPwd === 'admin123' || enteredPwd === '45756') {
+    if (enteredPwd === '45756' || enteredPwd === 'admin123') {
       setIsChessUnlocked(true);
       actionCallback();
     } else if (enteredPwd !== null) {
@@ -299,19 +304,50 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   };
 
+  // --- FUNCTION 1: OPTIMIZE PLAYER GROUPS ---
+  const optimizePlayerGroups = (groups) => {
+    // Check if there are multiple groups and the last group has only 1 player
+    if (groups.length > 1 && groups[groups.length - 1].standings.length === 1) {
+        const singlePlayerGroup = groups.pop(); // Remove the single-player group
+        const singlePlayer = singlePlayerGroup.standings[0];
+        
+        // Add the player to the previous group
+        const targetGroup = groups[groups.length - 1];
+        targetGroup.standings.push(singlePlayer);
+        
+        // Regenerate or update matches for the updated last group to include the new player
+        targetGroup.standings.slice(0, -1).forEach(existingPlayer => {
+          targetGroup.matches.push({
+            id: `MATCH_${selectedCategory}_${targetGroup.groupName}_${existingPlayer.id}_${singlePlayer.id}_${Date.now()}`,
+            groupName: targetGroup.groupName,
+            playerA: existingPlayer,
+            playerB: singlePlayer,
+            scoreA: null,
+            scoreB: null,
+            isLocked: false
+          });
+        });
+    }
+    return groups;
+  };
+
+  // Group Structures creation for initial tournament start
   const createGroupStructures = (shuffledPlayers, targetGroupSize, roundNamePrefix) => {
     const totalQ = shuffledPlayers.length;
     let groupSizes = [];
 
-    if (totalQ <= 5) {
+    if (totalQ <= targetGroupSize) {
       groupSizes = [totalQ];
     } else {
       let numGroups = Math.floor(totalQ / targetGroupSize);
       let remainder = totalQ % targetGroupSize;
-      for (let g = 0; g < numGroups; g++) groupSizes.push(targetGroupSize);
+      for (let g = 0; g < numGroups; g++) {
+        groupSizes.push(targetGroupSize);
+      }
       if (remainder > 0) {
-        if (remainder === 1 && numGroups > 0) groupSizes[groupSizes.length - 1] += 1;
-        else groupSizes.push(remainder);
+        for (let i = 0; i < remainder; i++) {
+          groupSizes[i % numGroups] += 1;
+        }
       }
     }
 
@@ -330,7 +366,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         regId: p.regId,
         Registration_ID: p.Registration_ID,
         name: p.name,
-        flat: p.flat,
+        flat: p.flat || p.flatNo || p.apartment || 'N/A',
         played: 0,
         won: 0,
         drawn: 0,
@@ -357,7 +393,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       groupStructures.push({ groupName, standings, matchIds: groupMatches.map(m => m.id) });
     });
 
-    return { groupStructures, rawMatchesList };
+    const optimizedStructures = optimizePlayerGroups(groupStructures);
+    return { groupStructures: optimizedStructures, rawMatchesList };
   };
 
   const buildPlayerSchedulesMap = (updatedRoundsMap) => {
@@ -393,10 +430,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return schedulesMap;
   };
 
-  // Combine props participants with newly added participants from sportState
-  const allParticipants = [...(participants || []), ...(sportState.customParticipants || [])];
-
-  const rawFiltered = allParticipants.filter(p => {
+  const rawFiltered = (localParticipants || []).filter(p => {
     if (!selectedCategory || selectedCategory === 'All') return true;
     const catStr = selectedCategory.toLowerCase();
     const pCat = (p.category || p.Category || '').toString().toLowerCase();
@@ -413,15 +447,52 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   });
 
   const seenIds = new Set();
-  const seenNames = new Set();
   const filteredParticipants = rawFiltered.filter(p => {
-    const normName = p.name?.trim().toLowerCase();
     const pid = p.id || p.regId || p.Registration_ID;
-    if ((pid && seenIds.has(pid)) || (normName && seenNames.has(normName))) return false;
-    if (pid) seenIds.add(pid);
-    if (normName) seenNames.add(normName);
+    if (pid) {
+      if (seenIds.has(pid)) return false;
+      seenIds.add(pid);
+      return true;
+    }
     return true;
   });
+
+  // --- DUPLICATE DETECTION LOGIC ---
+  const detectDuplicates = () => {
+    const map = new Map();
+    const duplicatesList = [];
+
+    rawFiltered.forEach(p => {
+      const key = (p.id || p.regId || p.Registration_ID || p.name || '').toString().trim().toLowerCase();
+      if (!map.has(key)) {
+        map.set(key, [p]);
+      } else {
+        map.get(key).push(p);
+      }
+    });
+
+    map.forEach((entries, key) => {
+      if (entries.length > 1) {
+        duplicatesList.push({ key, entries });
+      }
+    });
+
+    return duplicatesList;
+  };
+
+  const duplicateGroups = detectDuplicates();
+
+  const handleResolveDuplicate = (keepEntry, entriesGroup) => {
+    verifyAdminAndExecute(() => {
+      const idsToRemove = new Set(entriesGroup.filter(e => e !== keepEntry).map(e => e.id || e.regId || e.Registration_ID));
+      const updated = localParticipants.filter(p => {
+        const pid = p.id || p.regId || p.Registration_ID;
+        return !idsToRemove.has(pid);
+      });
+      setLocalParticipants(updated);
+      alert(`✅ Duplicate entries resolved successfully! Kept player: ${keepEntry.name}`);
+    });
+  };
 
   const getParticipantSchedule = (p, idx = 0) => {
     const pid = p.id || p.regId || p.Registration_ID;
@@ -448,6 +519,67 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
     const previewSched = calculateInitialMatchSchedule(idx);
     return { text: previewSched.fullScheduleText, date: previewSched.scheduledDate, time: previewSched.scheduledTimeSlot, roundName: 'Round 1 (Tentative)' };
+  };
+
+  // --- FUNCTION 2: EXPORT MATCH SCHEDULE DATA ---
+  const exportMatchScheduleData = (categoriesDataMap) => {
+    let exportRows = [];
+
+    Object.entries(categoriesDataMap).forEach(([catName, catData]) => {
+      const catRounds = catData?.rounds || [];
+      catRounds.forEach(round => {
+        (round.groups || []).forEach(group => {
+          if (!group.matches || group.matches.length === 0) return; // Skip groups with no matches safely
+
+          group.matches.forEach(match => {
+            let winnerText = "Pending / Scheduled";
+            if (match.isLocked && match.scoreA !== null && match.scoreB !== null) {
+              const sA = Number(match.scoreA);
+              const sB = Number(match.scoreB);
+              if (sA > sB) winnerText = match.playerA?.name || "Player A";
+              else if (sB > sA) winnerText = match.playerB?.name || "Player B";
+              else winnerText = "Draw";
+            }
+
+            exportRows.push({
+              MatchTiming: match.fullScheduleText || `Date:${match.scheduledDate} ${match.scheduledTimeSlot}`,
+              Category: catName,
+              Round: round.roundName || "Round 1",
+              Group: group.groupName,
+              PlayerA: match.playerA ? match.playerA.name : "Bye",
+              PlayerB: match.playerB ? match.playerB.name : "Bye",
+              Winner: winnerText
+            });
+          });
+        });
+      });
+    });
+
+    if (exportRows.length === 0) {
+      alert("No match schedules found to export!");
+      return;
+    }
+
+    const headers = ['Match Timing', 'Category', 'Round', 'Group', 'Player A', 'Player B', 'Winner'];
+    const rows = exportRows.map(r => [
+      `"${r.MatchTiming}"`,
+      `"${r.Category}"`,
+      `"${r.Round}"`,
+      `"${r.Group}"`,
+      `"${r.PlayerA}"`,
+      `"${r.PlayerB}"`,
+      `"${r.Winner}"`
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `chess_match_schedule_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const updateCurrentCategoryState = (newRounds, newRoundIndex) => {
@@ -504,144 +636,144 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
       const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
       updateCurrentCategoryState(newRounds, 0);
-      alert(`Round 1 initialized for ${selectedCategory}!`);
+      alert(`Round 1 initialized for ${selectedCategory}! Total matches scheduled: ${scheduledMatches.length}`);
     });
   };
 
-  // 3. ADD NEW PLAYER & ADJUST IN ROUND 1 (Secured)[cite: 3]
-  const handleAddAndAssignPlayer = () => {
-    verifyAdminAndExecute(() => {
-      if (!newPlayerName.trim()) {
-        alert('Please enter a valid player name.');
-        return;
-      }
+  // --- ADD NEW PLAYER TO ACTIVE TOURNAMENT WITH 3/5 PLAYER GROUP ADJUSTMENT LOGIC ---
+  const handleAddNewPlayerSubmit = (e) => {
+    e.preventDefault();
+    if (!newPlayerName.trim()) {
+      alert('Please enter a valid player name.');
+      return;
+    }
 
+    verifyAdminAndExecute(() => {
       const newPlayerObj = {
-        id: `p_custom_${Date.now()}`,
+        id: `p_new_${Date.now()}`,
         name: newPlayerName.trim(),
         flat: newPlayerFlat.trim() || 'N/A',
-        category: newPlayerCategory,
-        played: 0, won: 0, drawn: 0, lost: 0, points: 0
+        age: newPlayerAge.trim() || 'N/A',
+        category: selectedCategory,
+        played: 0,
+        won: 0,
+        drawn: 0,
+        lost: 0,
+        points: 0
       };
 
-      const updatedCustomParticipants = [...(sportState.customParticipants || []), newPlayerObj];
-      
-      // If tournament for the player's category has Round 1 initialized, adjust them into the target group
-      let updatedCategoryRoundsMap = { ...categoryRoundsMap };
-      const catData = updatedCategoryRoundsMap[newPlayerCategory];
+      // Add to local participants list
+      setLocalParticipants(prev => [...prev, newPlayerObj]);
 
-      if (catData && catData.rounds && catData.rounds.length > 0) {
-        const round1 = catData.rounds[0];
-        let targetGrp = round1.groups.find(g => g.groupName === newPlayerTargetGroup);
-        if (!targetGrp && round1.groups.length > 0) {
-          targetGrp = round1.groups[0]; // fallback to first group
-        }
+      // If tournament is active (has rounds), add player to current round following the requested rules
+      if (rounds.length > 0 && rounds[currentRoundIndex]) {
+        const currentRound = rounds[currentRoundIndex];
+        let updatedGroups = [...currentRound.groups];
 
-        if (targetGrp) {
-          // Add player to group standings
-          const newStandingEntry = {
-            id: newPlayerObj.id,
-            name: newPlayerObj.name,
-            flat: newPlayerObj.flat,
-            played: 0, won: 0, drawn: 0, lost: 0, points: 0
-          };
-          targetGrp.standings.push(newStandingEntry);
+        // Find group with 3 players first as requested ("if any group has three players...")
+        let targetGroupIndex = updatedGroups.findIndex(g => g.standings.length === 3);
 
-          // Create new matches against all existing players in this group
+        if (targetGroupIndex !== -1) {
+          // Add new player to group with 3 players (making it 4)
+          const targetGroup = updatedGroups[targetGroupIndex];
+          const newStandings = [...targetGroup.standings, newPlayerObj];
+          
+          // Generate new matches against existing players in this group
           const newGroupMatches = [];
-          targetGrp.standings.forEach(existingPlayer => {
-            if (existingPlayer.id !== newPlayerObj.id) {
-              const sched = calculateInitialMatchSchedule(targetGrp.matches.length + newGroupMatches.length + 5);
-              newGroupMatches.push({
-                id: `MATCH_NEW_${newPlayerCategory}_${targetGrp.groupName}_${Date.now()}_${Math.random()}`,
-                groupName: targetGrp.groupName,
-                playerA: newStandingEntry,
-                playerB: existingPlayer,
-                scoreA: null,
-                scoreB: null,
-                isLocked: false,
-                scheduledDate: sched.scheduledDate,
-                scheduledTimeSlot: sched.scheduledTimeSlot,
-                fullScheduleText: sched.fullScheduleText
-              });
-            }
+          targetGroup.standings.forEach(existingPlayer => {
+            newGroupMatches.push({
+              id: `MATCH_${selectedCategory}_${targetGroup.groupName}_${existingPlayer.id}_${newPlayerObj.id}_${Date.now()}`,
+              groupName: targetGroup.groupName,
+              playerA: existingPlayer,
+              playerB: newPlayerObj,
+              scoreA: null,
+              scoreB: null,
+              isLocked: false
+            });
           });
 
-          targetGrp.matches.push(...newGroupMatches);
-        }
-      }
+          updatedGroups[targetGroupIndex] = {
+            ...targetGroup,
+            standings: newStandings,
+            matches: [...targetGroup.matches, ...newGroupMatches]
+          };
+        } else {
+          // Check for group with 5 players ("if any group already had five players, then create a new group and move one player from that group to a new group which is having now two additional players")
+          let groupWithFiveIndex = updatedGroups.findIndex(g => g.standings.length === 5);
+          if (groupWithFiveIndex !== -1) {
+            const fiveGroup = updatedGroups[groupWithFiveIndex];
+            const movedPlayer = fiveGroup.standings.pop(); // move one player out
+            
+            // Re-index / filter matches for the 5-player group
+            const remainingFiveStandings = fiveGroup.standings;
+            const remainingMatches = fiveGroup.matches.filter(m => m.playerA.id !== movedPlayer.id && m.playerB.id !== movedPlayer.id);
+            updatedGroups[groupWithFiveIndex] = { ...fiveGroup, standings: remainingFiveStandings, matches: remainingMatches };
 
-      const updatedPlayerSchedules = buildPlayerSchedulesMap(updatedCategoryRoundsMap);
-      onUpdateSportState({
-        customParticipants: updatedCustomParticipants,
-        categoryRounds: updatedCategoryRoundsMap,
-        playerSchedules: updatedPlayerSchedules
-      });
+            // Create new group with moved player and new player
+            const newGroupName = `Group ${String.fromCharCode(65 + updatedGroups.length)}`;
+            const newGroupStandings = [movedPlayer, newPlayerObj];
+            const newGroupMatch = {
+              id: `MATCH_${selectedCategory}_${newGroupName}_${movedPlayer.id}_${newPlayerObj.id}_${Date.now()}`,
+              groupName: newGroupName,
+              playerA: movedPlayer,
+              playerB: newPlayerObj,
+              scoreA: null,
+              scoreB: null,
+              isLocked: false
+            };
+            updatedGroups.push({
+              groupName: newGroupName,
+              standings: newGroupStandings,
+              matches: [newGroupMatch]
+            });
+          } else {
+            // Default: Create a new group or add to the last group
+            const newGroupName = `Group ${String.fromCharCode(65 + updatedGroups.length)}`;
+            const newGroupStandings = [newPlayerObj];
+            updatedGroups.push({
+              groupName: newGroupName,
+              standings: newGroupStandings,
+              matches: []
+            });
+          }
+        }
+
+        // Apply group optimization to merge any 1-player group back into the preceding group
+        updatedGroups = optimizePlayerGroups(updatedGroups);
+
+        // Schedule new matches
+        const allMatchesFlat = [];
+        updatedGroups.forEach(g => g.matches.forEach(m => { if (!m.scheduledDate) allMatchesFlat.push(m); }));
+        const scheduledNew = selectedCategory === '18+ Years Adults' 
+          ? buildAdultsWeekendSchedule(allMatchesFlat) 
+          : buildConflictFreeSchedule(allMatchesFlat);
+
+        // Map back scheduled matches
+        let schedIdx = 0;
+        updatedGroups = updatedGroups.map(g => ({
+          ...g,
+          matches: g.matches.map(m => {
+            if (!m.scheduledDate && scheduledNew[schedIdx]) {
+              return scheduledNew[schedIdx++];
+            }
+            return m;
+          })
+        }));
+
+        const updatedRounds = [...rounds];
+        updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
+        updateCurrentCategoryState(updatedRounds, currentRoundIndex);
+      }
 
       setNewPlayerName('');
       setNewPlayerFlat('');
+      setNewPlayerAge('');
       setShowAddPlayerModal(false);
-      alert(`🎉 Successfully added "${newPlayerObj.name}" and adjusted them into Round 1 (${newPlayerCategory})!`);
+      alert(`🎉 New player "${newPlayerObj.name}" successfully added and assigned to the tournament!`);
     });
   };
 
-  // 4. DOWNLOAD EXCEL / CSV GAME DATA[cite: 3]
-  const handleDownloadExcel = () => {
-    verifyAdminAndExecute(() => {
-      let csvRows = [];
-      // Header: Match Timing in 1st column, Winner in last column as requested[cite: 3]
-      csvRows.push(['Match Timing', 'Category', 'Round', 'Group', 'Player A', 'Player B', 'Winner'].join(','));
-
-      const roundsMap = sportState?.categoryRounds || {};
-      let totalMatchesExported = 0;
-
-      Object.entries(roundsMap).forEach(([catKey, catData]) => {
-        const catRounds = catData?.rounds || [];
-        catRounds.forEach(r => {
-          (r.groups || []).forEach(g => {
-            (g.matches || []).forEach(m => {
-              const timing = `"${m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`}"`;
-              const category = `"${catKey}"`;
-              const roundName = `"${r.roundName}"`;
-              const groupName = `"${g.groupName}"`;
-              const playerA = `"${m.playerA?.name || 'N/A'}"`;
-              const playerB = `"${m.playerB?.name || 'N/A'}"`;
-              
-              let winner = 'Pending / Scheduled';
-              if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
-                const sA = Number(m.scoreA);
-                const sB = Number(m.scoreB);
-                if (sA > sB) winner = m.playerA?.name || 'Player A';
-                else if (sB > sA) winner = m.playerB?.name || 'Player B';
-                else winner = 'Draw';
-              }
-              const winnerCol = `"${winner}"`;
-
-              csvRows.push([timing, category, roundName, groupName, playerA, playerB, winnerCol].join(','));
-              totalMatchesExported++;
-            });
-          });
-        });
-      });
-
-      if (totalMatchesExported === 0) {
-        alert('⚠️ No tournament matches found to export yet. Please start Round 1 for at least one category first.');
-        return;
-      }
-
-      const csvContent = 'data:text/csv;charset=utf-8,' + csvRows.join('\n');
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement('a');
-      link.setAttribute('href', encodedUri);
-      link.setAttribute('download', `Chess_Tournament_Game_Data_${formatDateShort(new Date())}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      alert(`📥 Successfully exported ${totalMatchesExported} matches to Excel/CSV format!`);
-    });
-  };
-
-  // 5. SAVE INDIVIDUAL SCHEDULE (Secured)
+  // 3. SAVE INDIVIDUAL SCHEDULE (Secured)
   const handleSaveIndividualSchedule = (groupIndex, matchId) => {
     verifyAdminAndExecute(() => {
       if (!tempScheduleDate || !tempScheduleTime) {
@@ -669,7 +801,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 6. UPDATE MATCH SCORE (Secured)
+  // 4. UPDATE MATCH SCORE (Secured)
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
@@ -705,7 +837,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 7. REVERT / RESET MATCH RESULT (Secured)
+  // 5. REVERT / RESET MATCH RESULT (Secured)
   const handleResetMatchResult = (groupIndex, matchId) => {
     verifyAdminAndExecute(() => {
       const confirmReset = window.confirm("Are you sure you want to revert this match result back to scheduled (clearing current scores)?");
@@ -743,7 +875,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 8. SCHEDULE TIEBREAKER (Secured)
+  // 6. SCHEDULE TIEBREAKER (Secured)
   const handleScheduleTiebreaker = (groupIndex) => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
@@ -799,7 +931,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 9. ADVANCE TO NEXT ROUND (Secured)
+  // 7. ADVANCE TO NEXT ROUND (Secured)
   const handleAdvanceToNextRound = () => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
@@ -886,11 +1018,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
   return (
     <div className="space-y-6">
-      {/* Top Header & Control Bar */}
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">♟️ Chess Master Championship Suite</h3>
-          <p className="text-xs text-slate-400">Independent category tournaments, group rules, sequential weekend scheduling & adhoc overrides.</p>
+          <p className="text-xs text-slate-400">Independent category tournaments, duplicate detection, mid-tournament new player addition & scheduling.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -908,29 +1039,40 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             <button onClick={() => setChessTab('hub')} className={`px-3 py-1.5 rounded-lg transition ${chessTab === 'hub' ? 'bg-amber-500 text-slate-950 font-black shadow' : 'text-slate-400 hover:text-white'}`}>
               ⚔️ Tournament & Scoring Hub
             </button>
+            <button onClick={() => setChessTab('duplicates')} className={`px-3 py-1.5 rounded-lg transition relative ${chessTab === 'duplicates' ? 'bg-amber-500 text-slate-950 font-black shadow' : 'text-slate-400 hover:text-white'}`}>
+              ⚠️ Duplicates
+              {duplicateGroups.length > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] px-1.5 py-0.2 rounded-full font-black animate-pulse">
+                  {duplicateGroups.length}
+                </span>
+              )}
+            </button>
           </div>
 
-          <button onClick={() => setShowAddPlayerModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-2.5 rounded-xl text-xs shadow transition flex items-center gap-1.5">
-            <span>➕ Add New Player</span>
-          </button>
-
-          <button onClick={handleDownloadExcel} className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black px-3.5 py-2.5 rounded-xl text-xs shadow transition flex items-center gap-1.5">
-            <span>📥 Download Excel</span>
+          <button
+            onClick={() => exportMatchScheduleData(categoryRoundsMap)}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black transition flex items-center gap-1.5 shadow"
+          >
+            <span>📥 Export Match Schedule</span>
           </button>
 
           {rounds.length === 0 ? (
             <button onClick={handleInitializeRound1} className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow">
-              🚀 Start Round 1 ({selectedCategory})
+              🚀 Start Round 1
             </button>
           ) : (
-            <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3.5 py-2 rounded-xl text-xs shadow transition">
-              🗑️ Delete Tournament
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => setShowAddPlayerModal(true)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs shadow transition">
+                ➕ Add Player
+              </button>
+              <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow transition">
+                🗑️ Delete
+              </button>
+            </div>
           )}
         </div>
       </div>
 
-      {/* Security Status Bar */}
       <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex justify-between items-center text-xs">
         <div className="flex items-center gap-2">
           <span className="text-slate-400 font-bold">Chess Admin Security Status:</span>
@@ -947,53 +1089,64 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         )}
       </div>
 
-      {/* Add New Player Modal */}
-      {showAddPlayerModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-md space-y-4 shadow-2xl">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h4 className="font-black text-amber-400 text-sm">➕ Add New Player & Assign to Round 1</h4>
-              <button onClick={() => setShowAddPlayerModal(false)} className="text-slate-400 hover:text-white font-bold text-xs">✕</button>
+      {/* --- DUPLICATES MANAGEMENT TAB --- */}
+      {chessTab === 'duplicates' && (
+        <div className="space-y-4">
+          <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 flex justify-between items-center">
+            <div>
+              <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">⚠️ Duplicate Participant Review & Resolution</h4>
+              <p className="text-[11px] text-slate-400">Inspect detected duplicate participants and select which record to keep or remove.</p>
             </div>
-            
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="text-slate-400 font-bold block mb-1">Player Name:</label>
-                <input type="text" value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} placeholder="e.g., Aryan Sharma" className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none" />
-              </div>
-
-              <div>
-                <label className="text-slate-400 font-bold block mb-1">Flat / Villa No:</label>
-                <input type="text" value={newPlayerFlat} onChange={(e) => setNewPlayerFlat(e.target.value)} placeholder="e.g., A-402" className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none" />
-              </div>
-
-              <div>
-                <label className="text-slate-400 font-bold block mb-1">Age Category:</label>
-                <select value={newPlayerCategory} onChange={(e) => setNewPlayerCategory(e.target.value)} className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none">
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-slate-400 font-bold block mb-1">Target Round 1 Group (if tournament is active):</label>
-                <select value={newPlayerTargetGroup} onChange={(e) => setNewPlayerTargetGroup(e.target.value)} className="w-full bg-slate-950 text-amber-300 font-bold p-2.5 rounded-xl border border-slate-800 outline-none">
-                  <option value="Group A">Group A</option>
-                  <option value="Group B">Group B</option>
-                  <option value="Group C">Group C</option>
-                  <option value="Group D">Group D</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-3 border-t border-slate-800">
-              <button onClick={() => setShowAddPlayerModal(false)} className="bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-xl text-xs">Cancel</button>
-              <button onClick={handleAddAndAssignPlayer} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-5 py-2 rounded-xl text-xs shadow">Save & Adjust in Group</button>
-            </div>
+            <span className="bg-rose-950 text-rose-300 border border-rose-500/40 px-3 py-1 rounded-full text-xs font-black">
+              {duplicateGroups.length} Duplicate Group(s) Found
+            </span>
           </div>
+
+          {duplicateGroups.length === 0 ? (
+            <div className="bg-slate-900 p-12 rounded-2xl border border-slate-800 text-center text-slate-400 space-y-2">
+              <span className="text-3xl">✨</span>
+              <p className="font-bold text-slate-200">No duplicate participants detected in category "{selectedCategory}".</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {duplicateGroups.map((dup, idx) => (
+                <div key={idx} className="bg-slate-900 p-5 rounded-2xl border border-rose-500/40 shadow-xl space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <span className="text-xs font-black text-rose-400 uppercase">Match Key / Identifier: {dup.key}</span>
+                    <span className="text-[10px] text-slate-400 font-bold">{dup.entries.length} conflicting records</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {dup.entries.map((entry, eIdx) => {
+                      const entryId = entry.id || entry.regId || entry.Registration_ID || `e_${eIdx}`;
+                      return (
+                        <div key={entryId} className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between space-y-3 shadow">
+                          <div className="space-y-1">
+                            <div className="flex justify-between items-start">
+                              <h5 className="font-bold text-slate-100 text-sm">{entry.name}</h5>
+                              <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-black">ID: {entryId}</span>
+                            </div>
+                            <p className="text-xs text-slate-400">Flat: <strong className="text-slate-200">{entry.flat || entry.flatNo || entry.apartment || 'N/A'}</strong></p>
+                            <p className="text-xs text-slate-400">Category: <strong className="text-amber-400">{selectedCategory}</strong></p>
+                          </div>
+                          <button
+                            onClick={() => handleResolveDuplicate(entry, dup.entries)}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-2 rounded-lg text-xs shadow transition"
+                          >
+                            Keep This Record (Remove Others)
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Participants Tab */}
+      {/* --- PARTICIPANTS TAB --- */}
       {chessTab === 'participants' && (
         <div className="space-y-4">
           <div className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
@@ -1004,7 +1157,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             {rounds.length === 0 ? (
               <button onClick={handleInitializeRound1} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-2 rounded-xl text-xs shadow">🚀 Start Round 1</button>
             ) : (
-              <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow">🗑️ Delete Tournament</button>
+              <div className="flex gap-2">
+                <button onClick={() => setShowAddPlayerModal(true)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3 py-2 rounded-xl text-xs shadow">➕ Add Player</button>
+                <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow">🗑️ Delete</button>
+              </div>
             )}
           </div>
 
@@ -1017,9 +1173,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                   <div className="space-y-1">
                     <div className="flex justify-between items-start">
                       <h5 className="font-bold text-slate-100 text-sm">{p.name}</h5>
-                      <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-black">ID: {p.id || p.regId || p.Registration_ID || 'N/A'}</span>
+                      <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-black">ID: {pid}</span>
                     </div>
-                    <p className="text-xs text-slate-400">Flat: <strong className="text-slate-200">{p.flat || 'N/A'}</strong></p>
+                    <p className="text-xs text-slate-400">Flat: <strong className="text-slate-200">{p.flat || p.flatNo || p.apartment || 'N/A'}</strong></p>
                   </div>
                   <div className="pt-1">
                     {sched && (
@@ -1036,7 +1192,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         </div>
       )}
 
-      {/* Tournament & Scoring Hub Tab */}
+      {/* --- TOURNAMENT & SCORING HUB TAB --- */}
       {chessTab === 'hub' && (
         <>
           {rounds.length > 0 && (
@@ -1059,7 +1215,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                 </div>
                 
                 <div className="flex gap-2 items-center">
-                  <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow">🗑️ Delete Tournament</button>
+                  <button onClick={() => setShowAddPlayerModal(true)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs shadow">➕ Add Player</button>
+                  <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow">🗑️ Delete</button>
                   {!isGrandFinale ? (
                     <button onClick={handleAdvanceToNextRound} disabled={!canAdvance} className={`font-black px-4 py-2 rounded-xl text-xs shadow transition ${canAdvance ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'}`}>
                       ⚡ Regroup & Advance Qualified Players
@@ -1206,6 +1363,40 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             </div>
           )}
         </>
+      )}
+
+      {/* --- ADD NEW PLAYER MODAL --- */}
+      {showAddPlayerModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 p-6 rounded-2xl w-full max-w-md shadow-2xl space-y-5">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h4 className="font-black text-amber-400 text-sm">➕ Add New Player to {selectedCategory}</h4>
+              <button onClick={() => setShowAddPlayerModal(false)} className="text-slate-400 hover:text-white font-bold">✕</button>
+            </div>
+
+            <form onSubmit={handleAddNewPlayerSubmit} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Player Full Name *</label>
+                <input type="text" required value={newPlayerName} onChange={(e) => setNewPlayerName(e.target.value)} placeholder="e.g., Alex Johnson" className="w-full bg-slate-950 text-slate-100 font-bold p-2.5 rounded-xl border border-slate-800 text-xs outline-none" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Flat No. / Apartment</label>
+                <input type="text" value={newPlayerFlat} onChange={(e) => setNewPlayerFlat(e.target.value)} placeholder="e.g., B-402" className="w-full bg-slate-950 text-slate-100 font-bold p-2.5 rounded-xl border border-slate-800 text-xs outline-none" />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-300">Age / Group</label>
+                <input type="text" value={newPlayerAge} onChange={(e) => setNewPlayerAge(e.target.value)} placeholder="e.g., 10" className="w-full bg-slate-950 text-slate-100 font-bold p-2.5 rounded-xl border border-slate-800 text-xs outline-none" />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button type="button" onClick={() => setShowAddPlayerModal(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-2.5 rounded-xl text-xs">Cancel</button>
+                <button type="submit" className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 rounded-xl text-xs shadow">Add & Schedule</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
