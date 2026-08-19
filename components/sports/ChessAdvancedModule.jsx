@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 export default function ChessAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
   const categories = [
@@ -15,9 +15,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
   
   const categoryRoundsMap = sportState?.categoryRounds || {};
   const currentCategoryData = categoryRoundsMap[selectedCategory] || { rounds: [], currentRoundIndex: 0 };
-  const rounds = currentCategoryData.rounds;
-  const currentRoundIndex = currentCategoryData.currentRoundIndex;
-
+  
   const [advancementCount, setAdvancementCount] = useState(2);
   const [groupSize, setGroupSize] = useState(4);
   
@@ -68,16 +66,16 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     }
   };
 
-  const formatDateShort = (dateObj) => {
+  function formatDateShort(dateObj) {
     const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
     if (isNaN(d.getTime())) return '15Aug26';
     const day = String(d.getDate()).padStart(2, '0');
     const month = d.toLocaleString('en-US', { month: 'short' });
     const year = String(d.getFullYear()).slice(-2);
     return `${day}${month}${year}`;
-  };
+  }
 
-  const parseShortDateToISO = (dateStr) => {
+  function parseShortDateToISO(dateStr) {
     if (!dateStr) return '2026-08-15';
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
 
@@ -91,9 +89,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       return `${yearStr}-${month}-${day}`;
     }
     return '2026-08-15';
-  };
+  }
 
-  const formatDateShortFromISO = (isoStr) => {
+  function formatDateShortFromISO(isoStr) {
     if (!isoStr) return '15Aug26';
     const parts = isoStr.split('-');
     if (parts.length === 3) {
@@ -105,24 +103,24 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       return `${day}${month}${year}`;
     }
     return '15Aug26';
-  };
+  }
 
-  const formatHour12 = (hour24) => {
+  function formatHour12(hour24) {
     const h = hour24 % 12 || 12;
     const ampm = hour24 >= 12 && hour24 < 24 ? 'PM' : 'AM';
     return `${h} ${ampm}`.replace(' ', '');
-  };
+  }
 
-  const getEffectiveAdv = (grp, isGrand) => {
+  function getEffectiveAdv(grp, isGrand) {
     if (isGrand) return 1;
     if (grp.standings.length === 5) return 3;
     if (grp.standings.length === 4) return 2;
     if (grp.standings.length === 3) return 2;
     if (grp.standings.length < 4) return 1;
     return advancementCount;
-  };
+  }
 
-  const getLatestDateFromRound = (round) => {
+  function getLatestDateFromRound(round) {
     let maxTimestamp = 0;
     let maxDateObj = new Date('2026-08-23');
     if (!round || !round.groups) return maxDateObj;
@@ -141,17 +139,17 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       });
     });
     return maxDateObj;
-  };
+  }
 
-  const getNextWeekendSaturday = (fromDate) => {
+  function getNextWeekendSaturday(fromDate) {
     const d = new Date(fromDate);
     const day = d.getDay();
     let daysToAdd = day === 6 ? 7 : (day === 0 ? 6 : 6 - day);
     d.setDate(d.getDate() + daysToAdd);
     return d;
-  };
+  }
 
-  const buildConflictFreeSchedule = (allMatches, startD = new Date('2026-08-15'), isRound1 = false) => {
+  function buildConflictFreeSchedule(allMatches, startD = new Date('2026-08-15'), isRound1 = false) {
     let slotsPerDay = 6;
     let parallelCapacity = 3;
     const startHour = 11;
@@ -216,9 +214,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         fullScheduleText: `Date:${dateStr} 11 AM to 12 PM`,
       };
     });
-  };
+  }
 
-  const buildAdultsWeekendSchedule = (allMatches, baseStart = new Date('2026-08-15'), isRound1 = false) => {
+  function buildAdultsWeekendSchedule(allMatches, baseStart = new Date('2026-08-15'), isRound1 = false) {
     let parallelCapacity = 3;
     let slotsPerDay = 6;
     const startHour = 11;
@@ -281,9 +279,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         fullScheduleText: `Date:${finalDateStr} ${finalSlotStr}`,
       };
     });
-  };
+  }
 
-  const calculateInitialMatchSchedule = (matchIndex) => {
+  function calculateInitialMatchSchedule(matchIndex) {
     const startD = new Date('2026-08-15');
     const startHour = 11;
     const matchesPerDay = 6;
@@ -302,34 +300,106 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       scheduledTimeSlot: timeSlotStr,
       fullScheduleText: `Date:${dateStr} ${timeSlotStr}`,
     };
-  };
+  }
 
-  // --- FUNCTION 1: OPTIMIZE PLAYER GROUPS ---
-  const optimizePlayerGroups = (groups) => {
-    // Check if there are multiple groups and the last group has only 1 player
-    if (groups.length > 1 && groups[groups.length - 1].standings.length === 1) {
-        const singlePlayerGroup = groups.pop(); // Remove the single-player group
-        const singlePlayer = singlePlayerGroup.standings[0];
-        
-        // Add the player to the previous group
-        const targetGroup = groups[groups.length - 1];
+  // --- ROBUST STANDINGS RECALCULATION HELPER ---
+  function recalculateGroupStandings(standings, matches) {
+    const newStandings = standings.map(s => ({
+      ...s,
+      played: 0,
+      won: 0,
+      drawn: 0,
+      lost: 0,
+      points: 0
+    }));
+
+    matches.forEach(m => {
+      if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
+        const pA = newStandings.find(s => s.id === m.playerA?.id || s.regId === m.playerA?.regId || s.name === m.playerA?.name);
+        const pB = newStandings.find(s => s.id === m.playerB?.id || s.regId === m.playerB?.regId || s.name === m.playerB?.name);
+        if (pA && pB) {
+          const sA = Number(m.scoreA);
+          const sB = Number(m.scoreB);
+          pA.played += 1;
+          pB.played += 1;
+          if (sA > sB) {
+            pA.won += 1;
+            pA.points += 1;
+            pB.lost += 1;
+          } else if (sB > sA) {
+            pB.won += 1;
+            pB.points += 1;
+            pA.lost += 1;
+          } else {
+            pA.drawn += 1;
+            pA.points += 0.5;
+            pB.drawn += 1;
+            pB.points += 0.5;
+          }
+        }
+      }
+    });
+    return newStandings;
+  }
+
+  // --- FUNCTION 1 & MERGING: OPTIMIZE & MERGE SINGLE-PLAYER GROUPS (Pure/Immutable) ---
+  function optimizePlayerGroups(groups) {
+    if (!groups || !Array.isArray(groups)) return [];
+    let optimized = groups.map(g => ({
+      ...g,
+      standings: [...g.standings],
+      matches: [...g.matches]
+    }));
+
+    while (optimized.length > 1 && optimized[optimized.length - 1].standings.length === 1) {
+      const singlePlayerGroup = optimized.pop();
+      const singlePlayer = singlePlayerGroup.standings[0];
+      
+      const lastIdx = optimized.length - 1;
+      const targetGroup = {
+        ...optimized[lastIdx],
+        standings: [...optimized[lastIdx].standings],
+        matches: [...optimized[lastIdx].matches]
+      };
+
+      const exists = targetGroup.standings.some(s => s.id === singlePlayer.id || s.name === singlePlayer.name);
+      if (!exists) {
         targetGroup.standings.push(singlePlayer);
-        
-        // Regenerate or update matches for the updated last group to include the new player
-        targetGroup.standings.slice(0, -1).forEach(existingPlayer => {
-          targetGroup.matches.push({
-            id: `MATCH_${selectedCategory}_${targetGroup.groupName}_${existingPlayer.id}_${singlePlayer.id}_${Date.now()}`,
-            groupName: targetGroup.groupName,
-            playerA: existingPlayer,
-            playerB: singlePlayer,
-            scoreA: null,
-            scoreB: null,
-            isLocked: false
-          });
-        });
+      }
+
+      const newMatchesToAdd = [];
+      targetGroup.standings.forEach(existingPlayer => {
+        if (existingPlayer.id !== singlePlayer.id && existingPlayer.name !== singlePlayer.name) {
+          const matchExists = targetGroup.matches.some(m => 
+            (m.playerA?.id === existingPlayer.id && m.playerB?.id === singlePlayer.id) ||
+            (m.playerA?.id === singlePlayer.id && m.playerB?.id === existingPlayer.id) ||
+            (m.playerA?.name === existingPlayer.name && m.playerB?.name === singlePlayer.name) ||
+            (m.playerA?.name === singlePlayer.name && m.playerB?.name === existingPlayer.name)
+          );
+          if (!matchExists) {
+            const sched = calculateInitialMatchSchedule(targetGroup.matches.length + newMatchesToAdd.length + 5);
+            newMatchesToAdd.push({
+              id: `MATCH_${selectedCategory}_${targetGroup.groupName}_${existingPlayer.id || existingPlayer.name}_${singlePlayer.id || singlePlayer.name}_${Date.now()}`,
+              groupName: targetGroup.groupName,
+              playerA: existingPlayer,
+              playerB: singlePlayer,
+              scoreA: null,
+              scoreB: null,
+              isLocked: false,
+              scheduledDate: sched.scheduledDate,
+              scheduledTimeSlot: sched.scheduledTimeSlot,
+              fullScheduleText: sched.fullScheduleText
+            });
+          }
+        }
+      });
+
+      targetGroup.matches = [...targetGroup.matches, ...newMatchesToAdd];
+      targetGroup.standings = recalculateGroupStandings(targetGroup.standings, targetGroup.matches);
+      optimized[lastIdx] = targetGroup;
     }
-    return groups;
-  };
+    return optimized;
+  }
 
   // Group Structures creation for initial tournament start
   const createGroupStructures = (shuffledPlayers, targetGroupSize, roundNamePrefix) => {
@@ -397,7 +467,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     return { groupStructures: optimizedStructures, rawMatchesList };
   };
 
-  const buildPlayerSchedulesMap = (updatedRoundsMap) => {
+  const buildPlayerSchedulesMap = useCallback((updatedRoundsMap) => {
     const schedulesMap = { ...(sportState.playerSchedules || {}) };
     Object.entries(updatedRoundsMap).forEach(([catKey, catData]) => {
       const catRounds = catData?.rounds || [];
@@ -428,37 +498,56 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       });
     });
     return schedulesMap;
-  };
+  }, [sportState.playerSchedules]);
 
-  const rawFiltered = (localParticipants || []).filter(p => {
-    if (!selectedCategory || selectedCategory === 'All') return true;
-    const catStr = selectedCategory.toLowerCase();
-    const pCat = (p.category || p.Category || '').toString().toLowerCase();
-    const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
-    const pAge = (p.age || p.Age || '').toString();
-    const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
+  // --- MEMOIZED FILTERED PARTICIPANTS ---
+  const filteredParticipants = useMemo(() => {
+    const rawFiltered = (localParticipants || []).filter(p => {
+      if (!selectedCategory || selectedCategory === 'All') return true;
+      const catStr = selectedCategory.toLowerCase();
+      const pCat = (p.category || p.Category || '').toString().toLowerCase();
+      const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
+      const pAge = (p.age || p.Age || '').toString();
+      const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
 
-    if (pCat === catStr || pAgeGroup === catStr) return true;
-    if (catStr.includes('under 8')) return (numAge > 0 && numAge < 8) || pCat.includes('under 8');
-    if (catStr.includes('under 12')) return (numAge >= 8 && numAge < 12) || pCat.includes('under 12');
-    if (catStr.includes('12 - 17') || catStr.includes('teens')) return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17');
-    if (catStr.includes('18+') || catStr.includes('adult')) return numAge >= 18 || pCat.includes('adult') || numAge === 0;
-    return pCat.includes(catStr) || pAgeGroup.includes(catStr);
-  });
+      if (pCat === catStr || pAgeGroup === catStr) return true;
+      if (catStr.includes('under 8')) return (numAge > 0 && numAge < 8) || pCat.includes('under 8');
+      if (catStr.includes('under 12')) return (numAge >= 8 && numAge < 12) || pCat.includes('under 12');
+      if (catStr.includes('12 - 17') || catStr.includes('teens')) return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17');
+      if (catStr.includes('18+') || catStr.includes('adult')) return numAge >= 18 || pCat.includes('adult') || numAge === 0;
+      return pCat.includes(catStr) || pAgeGroup.includes(catStr);
+    });
 
-  const seenIds = new Set();
-  const filteredParticipants = rawFiltered.filter(p => {
-    const pid = p.id || p.regId || p.Registration_ID;
-    if (pid) {
-      if (seenIds.has(pid)) return false;
-      seenIds.add(pid);
+    const seenIds = new Set();
+    return rawFiltered.filter(p => {
+      const pid = p.id || p.regId || p.Registration_ID;
+      if (pid) {
+        if (seenIds.has(pid)) return false;
+        seenIds.add(pid);
+        return true;
+      }
       return true;
-    }
-    return true;
-  });
+    });
+  }, [localParticipants, selectedCategory]);
 
-  // --- DUPLICATE DETECTION LOGIC ---
-  const detectDuplicates = () => {
+  // --- MEMOIZED DUPLICATE DETECTION LOGIC ---
+  const duplicateGroups = useMemo(() => {
+    const rawFiltered = (localParticipants || []).filter(p => {
+      if (!selectedCategory || selectedCategory === 'All') return true;
+      const catStr = selectedCategory.toLowerCase();
+      const pCat = (p.category || p.Category || '').toString().toLowerCase();
+      const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
+      const pAge = (p.age || p.Age || '').toString();
+      const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
+
+      if (pCat === catStr || pAgeGroup === catStr) return true;
+      if (catStr.includes('under 8')) return (numAge > 0 && numAge < 8) || pCat.includes('under 8');
+      if (catStr.includes('under 12')) return (numAge >= 8 && numAge < 12) || pCat.includes('under 12');
+      if (catStr.includes('12 - 17') || catStr.includes('teens')) return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17');
+      if (catStr.includes('18+') || catStr.includes('adult')) return numAge >= 18 || pCat.includes('adult') || numAge === 0;
+      return pCat.includes(catStr) || pAgeGroup.includes(catStr);
+    });
+
     const map = new Map();
     const duplicatesList = [];
 
@@ -478,9 +567,17 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
 
     return duplicatesList;
-  };
+  }, [localParticipants, selectedCategory]);
 
-  const duplicateGroups = detectDuplicates();
+  // --- MEMOIZED ROUNDS DERIVATION ---
+  const rounds = useMemo(() => {
+    return (currentCategoryData.rounds || []).map(r => ({
+      ...r,
+      groups: optimizePlayerGroups(r.groups)
+    }));
+  }, [currentCategoryData.rounds]);
+
+  const currentRoundIndex = currentCategoryData.currentRoundIndex;
 
   const handleResolveDuplicate = (keepEntry, entriesGroup) => {
     verifyAdminAndExecute(() => {
@@ -529,7 +626,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const catRounds = catData?.rounds || [];
       catRounds.forEach(round => {
         (round.groups || []).forEach(group => {
-          if (!group.matches || group.matches.length === 0) return; // Skip groups with no matches safely
+          if (!group.matches || group.matches.length === 0) return;
 
           group.matches.forEach(match => {
             let winnerText = "Pending / Scheduled";
@@ -640,7 +737,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // --- ADD NEW PLAYER TO ACTIVE TOURNAMENT WITH 3/5 PLAYER GROUP ADJUSTMENT LOGIC ---
+  // --- ADD NEW PLAYER TO ACTIVE TOURNAMENT WITH ROBUST PERSISTENCE & STANDINGS ---
   const handleAddNewPlayerSubmit = (e) => {
     e.preventDefault();
     if (!newPlayerName.trim()) {
@@ -662,54 +759,57 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         points: 0
       };
 
-      // Add to local participants list
       setLocalParticipants(prev => [...prev, newPlayerObj]);
 
-      // If tournament is active (has rounds), add player to current round following the requested rules
       if (rounds.length > 0 && rounds[currentRoundIndex]) {
         const currentRound = rounds[currentRoundIndex];
         let updatedGroups = [...currentRound.groups];
 
-        // Find group with 3 players first as requested ("if any group has three players...")
         let targetGroupIndex = updatedGroups.findIndex(g => g.standings.length === 3);
 
         if (targetGroupIndex !== -1) {
-          // Add new player to group with 3 players (making it 4)
           const targetGroup = updatedGroups[targetGroupIndex];
           const newStandings = [...targetGroup.standings, newPlayerObj];
           
-          // Generate new matches against existing players in this group
           const newGroupMatches = [];
           targetGroup.standings.forEach(existingPlayer => {
-            newGroupMatches.push({
-              id: `MATCH_${selectedCategory}_${targetGroup.groupName}_${existingPlayer.id}_${newPlayerObj.id}_${Date.now()}`,
-              groupName: targetGroup.groupName,
-              playerA: existingPlayer,
-              playerB: newPlayerObj,
-              scoreA: null,
-              scoreB: null,
-              isLocked: false
-            });
+            const matchExists = targetGroup.matches.some(m => 
+              (m.playerA?.id === existingPlayer.id && m.playerB?.id === newPlayerObj.id) ||
+              (m.playerA?.id === newPlayerObj.id && m.playerB?.id === existingPlayer.id) ||
+              (m.playerA?.name === existingPlayer.name && m.playerB?.name === newPlayerObj.name) ||
+              (m.playerA?.name === newPlayerObj.name && m.playerB?.name === existingPlayer.name)
+            );
+            if (!matchExists) {
+              newGroupMatches.push({
+                id: `MATCH_${selectedCategory}_${targetGroup.groupName}_${existingPlayer.id}_${newPlayerObj.id}_${Date.now()}`,
+                groupName: targetGroup.groupName,
+                playerA: existingPlayer,
+                playerB: newPlayerObj,
+                scoreA: null,
+                scoreB: null,
+                isLocked: false
+              });
+            }
           });
+
+          const combinedMatches = [...targetGroup.matches, ...newGroupMatches];
+          const recalculatedStandings = recalculateGroupStandings(newStandings, combinedMatches);
 
           updatedGroups[targetGroupIndex] = {
             ...targetGroup,
-            standings: newStandings,
-            matches: [...targetGroup.matches, ...newGroupMatches]
+            standings: recalculatedStandings,
+            matches: combinedMatches
           };
         } else {
-          // Check for group with 5 players ("if any group already had five players, then create a new group and move one player from that group to a new group which is having now two additional players")
           let groupWithFiveIndex = updatedGroups.findIndex(g => g.standings.length === 5);
           if (groupWithFiveIndex !== -1) {
             const fiveGroup = updatedGroups[groupWithFiveIndex];
-            const movedPlayer = fiveGroup.standings.pop(); // move one player out
+            const movedPlayer = fiveGroup.standings.pop();
             
-            // Re-index / filter matches for the 5-player group
-            const remainingFiveStandings = fiveGroup.standings;
+            const remainingFiveStandings = recalculateGroupStandings(fiveGroup.standings, fiveGroup.matches);
             const remainingMatches = fiveGroup.matches.filter(m => m.playerA.id !== movedPlayer.id && m.playerB.id !== movedPlayer.id);
             updatedGroups[groupWithFiveIndex] = { ...fiveGroup, standings: remainingFiveStandings, matches: remainingMatches };
 
-            // Create new group with moved player and new player
             const newGroupName = `Group ${String.fromCharCode(65 + updatedGroups.length)}`;
             const newGroupStandings = [movedPlayer, newPlayerObj];
             const newGroupMatch = {
@@ -723,32 +823,28 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
             };
             updatedGroups.push({
               groupName: newGroupName,
-              standings: newGroupStandings,
+              standings: recalculateGroupStandings(newGroupStandings, [newGroupMatch]),
               matches: [newGroupMatch]
             });
           } else {
-            // Default: Create a new group or add to the last group
             const newGroupName = `Group ${String.fromCharCode(65 + updatedGroups.length)}`;
             const newGroupStandings = [newPlayerObj];
             updatedGroups.push({
               groupName: newGroupName,
-              standings: newGroupStandings,
+              standings: recalculateGroupStandings(newGroupStandings, []),
               matches: []
             });
           }
         }
 
-        // Apply group optimization to merge any 1-player group back into the preceding group
         updatedGroups = optimizePlayerGroups(updatedGroups);
 
-        // Schedule new matches
         const allMatchesFlat = [];
         updatedGroups.forEach(g => g.matches.forEach(m => { if (!m.scheduledDate) allMatchesFlat.push(m); }));
         const scheduledNew = selectedCategory === '18+ Years Adults' 
           ? buildAdultsWeekendSchedule(allMatchesFlat) 
           : buildConflictFreeSchedule(allMatchesFlat);
 
-        // Map back scheduled matches
         let schedIdx = 0;
         updatedGroups = updatedGroups.map(g => ({
           ...g,
@@ -801,7 +897,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     });
   };
 
-  // 4. UPDATE MATCH SCORE (Secured)
+  // 4. UPDATE MATCH SCORE WITH FULL PERSISTENCE (Secured)
   const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
@@ -812,22 +908,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const updatedGroups = currentRound.groups.map((grp, gIdx) => {
         if (gIdx !== groupIndex) return grp;
         const updatedMatches = grp.matches.map(m => m.id === matchId ? { ...m, scoreA: numA, scoreB: numB, isLocked: true } : m);
-        const newStandings = grp.standings.map(s => ({ ...s, played: 0, won: 0, drawn: 0, lost: 0, points: 0 }));
-
-        updatedMatches.forEach(m => {
-          if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
-            const pA = newStandings.find(s => s.id === m.playerA.id);
-            const pB = newStandings.find(s => s.id === m.playerB.id);
-            if (pA && pB) {
-              const sA = Number(m.scoreA);
-              const sB = Number(m.scoreB);
-              pA.played += 1; pB.played += 1;
-              if (sA > sB) { pA.won += 1; pA.points += 1; pB.lost += 1; }
-              else if (sB > sA) { pB.won += 1; pB.points += 1; pA.lost += 1; }
-              else { pA.drawn += 1; pA.points += 0.5; pB.drawn += 1; pB.points += 0.5; }
-            }
-          }
-        });
+        const newStandings = recalculateGroupStandings(grp.standings, updatedMatches);
         return { ...grp, standings: newStandings, matches: updatedMatches };
       });
 
@@ -849,22 +930,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       const updatedGroups = currentRound.groups.map((grp, gIdx) => {
         if (gIdx !== groupIndex) return grp;
         const updatedMatches = grp.matches.map(m => m.id === matchId ? { ...m, scoreA: null, scoreB: null, isLocked: false } : m);
-        const newStandings = grp.standings.map(s => ({ ...s, played: 0, won: 0, drawn: 0, lost: 0, points: 0 }));
-
-        updatedMatches.forEach(m => {
-          if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
-            const pA = newStandings.find(s => s.id === m.playerA.id);
-            const pB = newStandings.find(s => s.id === m.playerB.id);
-            if (pA && pB) {
-              const sA = Number(m.scoreA);
-              const sB = Number(m.scoreB);
-              pA.played += 1; pB.played += 1;
-              if (sA > sB) { pA.won += 1; pA.points += 1; pB.lost += 1; }
-              else if (sB > sA) { pB.won += 1; pB.points += 1; pA.lost += 1; }
-              else { pA.drawn += 1; pA.points += 0.5; pB.drawn += 1; pB.points += 0.5; }
-            }
-          }
-        });
+        const newStandings = recalculateGroupStandings(grp.standings, updatedMatches);
         return { ...grp, standings: newStandings, matches: updatedMatches };
       });
 
@@ -894,7 +960,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       }
 
       const uniqueTiedMap = new Map();
-      tiedPlayers.forEach(p => uniqueTiedMap.set(p.id, p));
+      tiedPlayers.forEach(p => uniqueTiedMap.set(p.id || p.name, p));
       const tiedList = Array.from(uniqueTiedMap.values());
 
       if (tiedList.length < 2 && sorted.length >= 2) tiedList.push(sorted[0], sorted[1]);
@@ -923,7 +989,10 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
         }
       }
 
-      const updatedGroups = currentRound.groups.map((g, gIdx) => gIdx !== groupIndex ? g : { ...g, matches: [...g.matches, ...newTiebreakerMatches] });
+      const updatedMatches = [...grp.matches, ...newTiebreakerMatches];
+      const updatedStandings = recalculateGroupStandings(grp.standings, updatedMatches);
+
+      const updatedGroups = currentRound.groups.map((g, gIdx) => gIdx !== groupIndex ? g : { ...g, standings: updatedStandings, matches: updatedMatches });
       const updatedRounds = [...rounds];
       updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
       updateCurrentCategoryState(updatedRounds, currentRoundIndex);
@@ -950,8 +1019,9 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
 
       const qSeenIds = new Set();
       const uniqueQualified = qualifiedPlayers.filter(p => {
-        if (p.id && qSeenIds.has(p.id)) return false;
-        if (p.id) qSeenIds.add(p.id);
+        const key = p.id || p.name;
+        if (key && qSeenIds.has(key)) return false;
+        if (key) qSeenIds.add(key);
         return true;
       });
 
@@ -1216,7 +1286,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                 
                 <div className="flex gap-2 items-center">
                   <button onClick={() => setShowAddPlayerModal(true)} className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black px-3.5 py-2 rounded-xl text-xs shadow">➕ Add Player</button>
-                  <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3 py-2 rounded-xl text-xs shadow">🗑️ Delete</button>
+                  <button onClick={handleDeleteTournament} className="bg-rose-950/80 hover:bg-rose-900 text-rose-300 border border-rose-500/50 font-black px-3.5 py-2 rounded-xl text-xs shadow">🗑️ Delete</button>
                   {!isGrandFinale ? (
                     <button onClick={handleAdvanceToNextRound} disabled={!canAdvance} className={`font-black px-4 py-2 rounded-xl text-xs shadow transition ${canAdvance ? 'bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer' : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed opacity-60'}`}>
                       ⚡ Regroup & Advance Qualified Players
@@ -1258,7 +1328,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
                         </thead>
                         <tbody className="divide-y divide-slate-800/60">
                           {grp.standings.sort((a, b) => b.points - a.points || b.won - a.won).map((s, rank) => (
-                            <tr key={s.id} className={rank < effectiveAdv ? 'bg-emerald-950/20' : ''}>
+                            <tr key={s.id || s.name} className={rank < effectiveAdv ? 'bg-emerald-950/20' : ''}>
                               <td className="py-2.5 font-bold text-slate-100 flex items-center gap-2">
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${rank < effectiveAdv ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>{rank + 1}</span>
                                 {s.name}
