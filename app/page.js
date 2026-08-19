@@ -47,7 +47,7 @@ const normalizeSponsors = (incomingSponsors = []) => {
   return list;
 };
 
-// Client-side image compressor to keep Redis API payload lightweight
+// Client-side image compressor to keep Redis API payload lightweight (Fallback option)
 const compressSponsorImage = (file, maxWidth = 400, maxHeight = 400, quality = 0.8) => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -596,7 +596,7 @@ export default function SanviOlympicsPortal() {
                     alt={sponsor.title}
                     width={150}
                     height={150}
-                    unoptimized={sponsor.image.startsWith('data:')}
+                    unoptimized={true}
                     className="w-full h-full object-contain rounded-md"
                   />
                 ) : (
@@ -823,7 +823,7 @@ export default function SanviOlympicsPortal() {
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
               <div>
                 <h3 className="text-base font-black text-slate-900">🌟 Sponsor Configuration Hub</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Upload square images, marquee text, and animation effects for all 12 placeholders.</p>
+                <p className="text-xs text-slate-500 mt-0.5">Paste direct image URLs or upload images for all 12 placeholders.</p>
               </div>
               <button onClick={() => setIsConfiguringSponsors(false)} className="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1.5 rounded-xl text-xs transition">
                 ✕ Close
@@ -856,7 +856,7 @@ export default function SanviOlympicsPortal() {
                         alt={sponsor.title}
                         width={120}
                         height={120}
-                        unoptimized={sponsor.image.startsWith('data:')}
+                        unoptimized={true}
                         className="w-full h-full object-contain rounded"
                       />
                     ) : (
@@ -864,8 +864,24 @@ export default function SanviOlympicsPortal() {
                     )}
                   </div>
 
+                  {/* Direct Image URL Input Field to minimize database & origin load */}
                   <div className="space-y-1">
-                    <label className="block text-[10px] font-bold text-slate-600">Browse Image / GIF (Auto-compressed)</label>
+                    <label className="block text-[10px] font-bold text-slate-600">Direct Image URL (Recommended)</label>
+                    <input
+                      type="text"
+                      value={sponsor.image && !sponsor.image.startsWith('data:') ? sponsor.image : ''}
+                      placeholder="https://assets.zyrosite.com/..."
+                      onChange={(e) => {
+                        const updated = [...sponsors];
+                        updated[index].image = e.target.value.trim() || null;
+                        setSponsors(updated);
+                      }}
+                      className="w-full bg-white border border-slate-200 p-2 rounded-xl text-xs text-slate-800 outline-none shadow-inner"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-slate-600">Or Upload File (Fallback)</label>
                     <input
                       type="file"
                       accept="image/*,.gif"
