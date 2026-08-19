@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 
 export default function CarromAdvancedModule({ participants = [], sportState = {}, onUpdateSportState }) {
   // Streamlined categories matching Chess
-  const categories = [
+  const categories = useMemo(() => [
     'Under 12 Kids',
     '12 - 17 Years',
     '18+ Years'
-  ];
+  ], []);
 
   const [selectedCategory, setSelectedCategory] = useState('Under 12 Kids');
   const [carromTab, setCarromTab] = useState('participants');
@@ -45,17 +45,17 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
   }, [selectedCategory]);
 
   // Helper to format Date object or Date string to '15Aug26'
-  const formatDateShort = (dateObj) => {
+  const formatDateShort = useCallback((dateObj) => {
     const d = dateObj instanceof Date ? dateObj : new Date(dateObj);
     if (isNaN(d.getTime())) return '15Aug26';
     const day = String(d.getDate()).padStart(2, '0');
     const month = d.toLocaleString('en-US', { month: 'short' });
     const year = String(d.getFullYear()).slice(-2);
     return `${day}${month}${year}`;
-  };
+  }, []);
 
   // Helper to convert '15Aug26' to ISO date string 'YYYY-MM-DD' for <input type="date">
-  const parseShortDateToISO = (dateStr) => {
+  const parseShortDateToISO = useCallback((dateStr) => {
     if (!dateStr) return scheduleDateInput;
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
 
@@ -69,10 +69,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       return `${yearStr}-${month}-${day}`;
     }
     return scheduleDateInput;
-  };
+  }, [scheduleDateInput]);
 
   // Helper to convert ISO date string 'YYYY-MM-DD' to short date format '15Aug26'
-  const formatDateShortFromISO = (isoStr) => {
+  const formatDateShortFromISO = useCallback((isoStr) => {
     if (!isoStr) return '15Aug26';
     const parts = isoStr.split('-');
     if (parts.length === 3) {
@@ -84,10 +84,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       return `${day}${month}${year}`;
     }
     return '15Aug26';
-  };
+  }, []);
 
   // Helper to format 30-minute time slots (e.g. 5 PM to 5:30 PM)
-  const formatTimeSlot30 = (startHourFloat, durationHours) => {
+  const formatTimeSlot30 = useCallback((startHourFloat, durationHours) => {
     const formatSingleTime = (hFloat) => {
       const h = Math.floor(hFloat);
       const m = Math.round((hFloat - h) * 60);
@@ -98,10 +98,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     };
     const endFloat = startHourFloat + durationHours;
     return `${formatSingleTime(startHourFloat)} to ${formatSingleTime(endFloat)}`;
-  };
+  }, []);
 
   // Central Admin Verification Guard with Dedicated Carrom Password ('carrom2026' or 'admin123')
-  const verifyAdminAndExecute = (actionCallback) => {
+  const verifyAdminAndExecute = useCallback((actionCallback) => {
     if (isAdminUnlocked) {
       actionCallback();
     } else {
@@ -113,20 +113,20 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
         alert('❌ Incorrect Carrom admin password. Action cancelled.');
       }
     }
-  };
+  }, [isAdminUnlocked]);
 
   // Effective advancement count per group
-  const getEffectiveAdv = (grp, isGrand) => {
+  const getEffectiveAdv = useCallback((grp, isGrand) => {
     if (isGrand) return 1;
     if (grp.standings.length === 5) return 3;
     if (grp.standings.length === 4) return 2;
     if (grp.standings.length === 3) return 2;
     if (grp.standings.length < 4) return 1;
     return advancementCount;
-  };
+  }, [advancementCount]);
 
   // Conflict-free match schedule generator (6 matches per slot, 30 minutes per match)
-  const buildConflictFreeSchedule = (allMatches) => {
+  const buildConflictFreeSchedule = useCallback((allMatches) => {
     const startHour = parseInt(scheduleStartHourInput, 10) || 17;
     const totalHours = parseInt(scheduleTotalHoursInput, 10) || 4;
     const matchDuration = 0.5; // 30 minutes per match
@@ -181,10 +181,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
         }
       }
     });
-  };
+  }, [scheduleStartHourInput, scheduleTotalHoursInput, scheduleDateInput, formatDateShort, formatTimeSlot30]);
 
   // Calculate Initial Match Schedule Fallback (6 matches per slot, 30-min duration)
-  const calculateInitialMatchSchedule = (matchIndex) => {
+  const calculateInitialMatchSchedule = useCallback((matchIndex) => {
     const startD = new Date(scheduleDateInput || '2026-08-15');
     const startHour = parseInt(scheduleStartHourInput, 10) || 17;
     const totalHours = parseInt(scheduleTotalHoursInput, 10) || 4;
@@ -209,47 +209,49 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       scheduledTimeSlot: timeSlotStr,
       fullScheduleText: `Date:${dateStr} ${timeSlotStr}`,
     };
-  };
+  }, [scheduleDateInput, scheduleStartHourInput, scheduleTotalHoursInput, formatDateShort, formatTimeSlot30]);
 
-  // Filter participants specifically for selected category matching chess logic
-  const rawFiltered = (participants || []).filter(p => {
-    if (!selectedCategory || selectedCategory === 'All') return true;
+  // Memoized Filtered participants specifically for selected category matching chess logic
+  const filteredParticipants = useMemo(() => {
+    const rawFiltered = (participants || []).filter(p => {
+      if (!selectedCategory || selectedCategory === 'All') return true;
 
-    const catStr = selectedCategory.toLowerCase();
-    const pCat = (p.category || p.Category || '').toString().toLowerCase();
-    const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
-    const pAge = (p.age || p.Age || '').toString();
-    const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
+      const catStr = selectedCategory.toLowerCase();
+      const pCat = (p.category || p.Category || '').toString().toLowerCase();
+      const pAgeGroup = (p.ageGroup || p.AgeGroup || p['Age Group'] || '').toString().toLowerCase();
+      const pAge = (p.age || p.Age || '').toString();
+      const numAge = parseInt(pAge.match(/\d+/)?.[0] || '0', 10);
 
-    if (pCat === catStr || pAgeGroup === catStr) return true;
+      if (pCat === catStr || pAgeGroup === catStr) return true;
 
-    if (catStr.includes('under 12')) {
-      return (numAge > 0 && numAge < 12) || pCat.includes('under 12') || pAgeGroup.includes('under 12');
-    }
-    if (catStr.includes('12 - 17') || catStr.includes('teens')) {
-      return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17') || pCat.includes('teen') || pAgeGroup.includes('teen');
-    }
-    if (catStr.includes('18+') || catStr.includes('adult')) {
-      return numAge >= 18 || pCat.includes('adult') || pCat.includes('senior') || pCat.includes('18+') || pAgeGroup.includes('adult') || pAgeGroup.includes('senior') || numAge === 0;
-    }
+      if (catStr.includes('under 12')) {
+        return (numAge > 0 && numAge < 12) || pCat.includes('under 12') || pAgeGroup.includes('under 12');
+      }
+      if (catStr.includes('12 - 17') || catStr.includes('teens')) {
+        return (numAge >= 12 && numAge <= 17) || pCat.includes('12 - 17') || pCat.includes('teen') || pAgeGroup.includes('teen');
+      }
+      if (catStr.includes('18+') || catStr.includes('adult')) {
+        return numAge >= 18 || pCat.includes('adult') || pCat.includes('senior') || pCat.includes('18+') || pAgeGroup.includes('adult') || pAgeGroup.includes('senior') || numAge === 0;
+      }
 
-    return pCat.includes(catStr) || pAgeGroup.includes(catStr);
-  });
+      return pCat.includes(catStr) || pAgeGroup.includes(catStr);
+    });
 
-  // Strict participant deduplication
-  const seenIds = new Set();
-  const seenNames = new Set();
-  const filteredParticipants = rawFiltered.filter(p => {
-    const normName = p.name?.trim().toLowerCase();
-    const pid = p.id || p.regId || p.Registration_ID;
-    if ((pid && seenIds.has(pid)) || (normName && seenNames.has(normName))) return false;
-    if (pid) seenIds.add(pid);
-    if (normName) seenNames.add(normName);
-    return true;
-  });
+    // Strict participant deduplication
+    const seenIds = new Set();
+    const seenNames = new Set();
+    return rawFiltered.filter(p => {
+      const normName = p.name?.trim().toLowerCase();
+      const pid = p.id || p.regId || p.Registration_ID;
+      if ((pid && seenIds.has(pid)) || (normName && seenNames.has(normName))) return false;
+      if (pid) seenIds.add(pid);
+      if (normName) seenNames.add(normName);
+      return true;
+    });
+  }, [participants, selectedCategory]);
 
   // Sync schedules for all individual players across all teams to sportState.playerSchedules
-  const buildPlayerSchedulesMap = (updatedRoundsMap, updatedTeamsMap) => {
+  const buildPlayerSchedulesMap = useCallback((updatedRoundsMap, updatedTeamsMap) => {
     const schedulesMap = { ...(sportState.playerSchedules || {}) };
 
     Object.entries(updatedRoundsMap).forEach(([catKey, catData]) => {
@@ -299,9 +301,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     });
 
     return schedulesMap;
-  };
+  }, [sportState.playerSchedules, participants]);
 
-  const updateCurrentCategoryState = (newRounds, newRoundIndex, newTeams) => {
+  const updateCurrentCategoryState = useCallback((newRounds, newRoundIndex, newTeams) => {
     const updatedRoundsMap = {
       ...categoryRoundsMap,
       [selectedCategory]: {
@@ -321,10 +323,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       categoryTeams: updatedTeamsMap,
       playerSchedules: updatedPlayerSchedules
     });
-  };
+  }, [categoryRoundsMap, categoryTeamsMap, selectedCategory, rounds, currentRoundIndex, currentTeams, buildPlayerSchedulesMap, onUpdateSportState]);
 
   // Delete Tournament feature
-  const handleDeleteTournament = () => {
+  const handleDeleteTournament = useCallback(() => {
     const confirmDelete = window.confirm(
       `⚠️ Are you sure you want to DELETE the active Carrom tournament for category "${selectedCategory}"?\n\nThis will completely clear rounds, group fixtures, match results, and team schedules for this category.`
     );
@@ -348,10 +350,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     });
 
     alert(`Tournament for "${selectedCategory}" has been deleted successfully!`);
-  };
+  }, [selectedCategory, categoryRoundsMap, categoryTeamsMap, buildPlayerSchedulesMap, onUpdateSportState]);
 
   // Feature: Explicitly form 2-player Teams per category
-  const handleGenerateTeams = () => {
+  const handleGenerateTeams = useCallback(() => {
     verifyAdminAndExecute(() => {
       if (filteredParticipants.length < 2) {
         alert(`Need at least 2 participants in "${selectedCategory}" to form teams.`);
@@ -389,10 +391,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       updateCurrentCategoryState(undefined, undefined, generatedTeams);
       alert(`Successfully created ${generatedTeams.length} 2-player teams for category "${selectedCategory}"!`);
     });
-  };
+  }, [verifyAdminAndExecute, filteredParticipants, selectedCategory, updateCurrentCategoryState]);
 
   // Helper to fetch individual participant's assigned team and schedule
-  const getParticipantTeamAndSchedule = (p, idx = 0) => {
+  const getParticipantTeamAndSchedule = useCallback((p, idx = 0) => {
     const pid = p.id || p.regId || p.Registration_ID;
     const normName = p.name?.trim().toLowerCase();
 
@@ -461,10 +463,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
         roundName: 'Round 1 (Tentative)'
       }
     };
-  };
+  }, [currentTeams, sportState?.playerSchedules, rounds, calculateInitialMatchSchedule]);
 
   // Initialize Round 1 Team Fixtures
-  const handleInitializeRound1 = () => {
+  const handleInitializeRound1 = useCallback(() => {
     verifyAdminAndExecute(() => {
       let teamsToUse = currentTeams;
 
@@ -552,9 +554,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       updateCurrentCategoryState(newRounds, 0, teamsToUse);
       alert(`Round 1 initialized for ${selectedCategory} with ${teamsToUse.length} doubles teams (Starting ${scheduleDateInput} at ${scheduleStartHourInput}:00 for ${scheduleTotalHoursInput} hrs/day, 6 matches/slot, 30-min duration)!`);
     });
-  };
+  }, [verifyAdminAndExecute, currentTeams, filteredParticipants, selectedCategory, groupSize, buildConflictFreeSchedule, updateCurrentCategoryState, scheduleDateInput, scheduleStartHourInput, scheduleTotalHoursInput]);
 
-  const handleSaveIndividualSchedule = (groupIndex, matchId) => {
+  const handleSaveIndividualSchedule = useCallback((groupIndex, matchId) => {
     verifyAdminAndExecute(() => {
       if (!tempScheduleDate || !tempScheduleTime) {
         alert('Please provide both a valid date and time slot.');
@@ -594,9 +596,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       setTempScheduleTime('');
       alert(`Match schedule updated successfully to ${fullText}!`);
     });
-  };
+  }, [verifyAdminAndExecute, tempScheduleDate, tempScheduleTime, formatDateShortFromISO, rounds, currentRoundIndex, currentTeams, updateCurrentCategoryState]);
 
-  const updateMatchScore = (groupIndex, matchId, scoreA, scoreB) => {
+  const updateMatchScore = useCallback((groupIndex, matchId, scoreA, scoreB) => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
       if (!currentRound) return;
@@ -653,10 +655,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
       updateCurrentCategoryState(updatedRounds, currentRoundIndex, currentTeams);
     });
-  };
+  }, [verifyAdminAndExecute, rounds, currentRoundIndex, currentTeams, updateCurrentCategoryState]);
 
   // Schedule Tiebreaker for Tied Teams
-  const handleScheduleTiebreaker = (groupIndex) => {
+  const handleScheduleTiebreaker = useCallback((groupIndex) => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
       if (!currentRound) return;
@@ -727,9 +729,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       updateCurrentCategoryState(updatedRounds, currentRoundIndex, currentTeams);
       alert(`⚖️ ${newTiebreakerMatches.length} tiebreaker playoff match(es) successfully scheduled among ${tiedList.map(t => t.name).join(', ')}!`);
     });
-  };
+  }, [verifyAdminAndExecute, rounds, currentRoundIndex, getEffectiveAdv, calculateInitialMatchSchedule, selectedCategory, currentTeams, updateCurrentCategoryState]);
 
-  const handleAdvanceToNextRound = () => {
+  const handleAdvanceToNextRound = useCallback(() => {
     verifyAdminAndExecute(() => {
       const currentRound = rounds[currentRoundIndex];
       if (!currentRound) return;
@@ -824,18 +826,18 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       updateCurrentCategoryState(updatedRounds, rounds.length, currentTeams);
       alert(`Successfully advanced ${uniqueQualified.length} teams to ${nextRoundName} for category ${selectedCategory}!`);
     });
-  };
+  }, [verifyAdminAndExecute, rounds, currentRoundIndex, getEffectiveAdv, isGrandFinale, groupSize, selectedCategory, buildConflictFreeSchedule, updateCurrentCategoryState, currentTeams]);
 
-  const verifyAdminPassword = (e) => {
+  const verifyAdminPassword = useCallback((e) => {
     e.preventDefault();
-    if (adminPasswordInput === 'admin123' || adminPasswordInput === 'carrom2026' || adminPasswordInput === 'sanvi2026') {
+    if (adminPasswordInput === '70908' || adminPasswordInput === 'carrom2026' || adminPasswordInput === '70908') {
       setIsAdminUnlocked(true);
       setAdminPasswordInput('');
       alert('Carrom Admin unlocked! You can now edit schedules and match results.');
     } else {
       alert('Incorrect Carrom admin password.');
     }
-  };
+  }, [adminPasswordInput]);
 
   const currentRound = rounds[currentRoundIndex];
   const isGrandFinale = currentRound?.roundName?.toLowerCase().includes('grand finals');
