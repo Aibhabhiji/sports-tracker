@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { Redis } from '@upstash/redis';
 
+// Enable the Edge runtime for lightning-fast global execution
+export const runtime = 'edge';
+
 const url = process.env.STORAGE_REST_API_URL || process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
 const token = process.env.STORAGE_REST_API_TOKEN || process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -9,7 +12,7 @@ const redis = (url && token) ? new Redis({ url, token }) : null;
 
 const STORAGE_KEY = 'sanvi_olympics_master_data';
 
-// GET: Fetches data globally with CDN caching and selective section filtering
+// GET: Fetches data globally with Edge CDN caching and selective section filtering
 export async function GET(request) {
   try {
     if (!redis) {
@@ -44,7 +47,7 @@ export async function GET(request) {
 
     return NextResponse.json(responseData, {
       headers: {
-        'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
       },
     });
   } catch (err) {
