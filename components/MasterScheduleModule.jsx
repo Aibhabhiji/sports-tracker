@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 
 const SPORT_NAMES_MAP = {
   cricket: 'Cricket',
@@ -19,11 +19,11 @@ const SPORT_NAMES_MAP = {
 // Categories that should be ignored/hidden from master schedules if they are junk/legacy tags
 const IGNORED_CATEGORIES = ['open', 'male', 'female', 'kids', 'n/a', 'all categories'];
 
-export default function MasterScheduleModule({ sportsData = {}, categories = [], onUpdateSportsData }) {
+function MasterScheduleModule({ sportsData = {}, categories = [], onUpdateSportsData }) {
   const [showManager, setShowManager] = useState(false);
 
-  // Helper to aggregate and clean up ALL valid scheduled matches
-  const getAllScheduledMatches = () => {
+  // 1. Memoized aggregation and cleanup of valid scheduled matches
+  const allMasterMatches = useMemo(() => {
     let allMatches = [];
     
     Object.entries(sportsData).forEach(([sportKey, sportObj]) => {
@@ -31,7 +31,6 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [],
       const categoryRoundsMap = sportObj?.categoryRounds || {};
 
       Object.entries(categoryRoundsMap).forEach(([catKey, catData]) => {
-        // Skip junk/legacy category keys like 'Open', 'Male', 'Female'
         if (IGNORED_CATEGORIES.includes(catKey.trim().toLowerCase())) {
           return;
         }
@@ -62,12 +61,10 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [],
     });
 
     return allMatches;
-  };
+  }, [sportsData]);
 
-  const allMasterMatches = getAllScheduledMatches();
-
-  // Gather list of ALL active tournaments across sports for the management panel
-  const getActiveTournamentsList = () => {
+  // 2. Memoized list of active tournaments across sports for the management panel
+  const activeTournaments = useMemo(() => {
     let list = [];
     Object.entries(sportsData).forEach(([sportKey, sportObj]) => {
       const sportName = SPORT_NAMES_MAP[sportKey] || sportKey.replace(/_/g, ' ').toUpperCase();
@@ -95,18 +92,24 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [],
       });
     });
     return list;
-  };
+  }, [sportsData]);
 
-  const activeTournaments = getActiveTournamentsList();
-
-  // Handler to delete an unwanted tournament category
-  const handleDeleteTournamentCategory = (sportKey, categoryKey) => {
+  // 3. Optimized & immutable delete handler to prevent unintended state mutation reference issues
+  const handleDeleteTournamentCategory = useCallback((sportKey, categoryKey) => {
     const confirmDelete = window.confirm(
       `⚠️ Are you sure you want to DELETE the tournament for sport "${sportKey.toUpperCase()}" under category "${categoryKey}"?\n\nThis will remove all its rounds, matches, and schedule data permanently.`
     );
     if (!confirmDelete) return;
 
-    const updatedSportsData = { ...sportsData };
+    // Deep-clone the modified path safely to maintain strict immutability
+    const updatedSportsData = {
+      ...sportsData,
+      [sportKey]: {
+        ...sportsData[sportKey],
+        categoryRounds: { ...sportsData[sportKey]?.categoryRounds }
+      }
+    };
+
     if (updatedSportsData[sportKey]?.categoryRounds) {
       delete updatedSportsData[sportKey].categoryRounds[categoryKey];
     }
@@ -115,33 +118,30 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [],
       onUpdateSportsData(updatedSportsData);
     }
     alert(`Tournament for "${categoryKey}" under ${sportKey} has been deleted successfully!`);
-  };
+  }, [sportsData, onUpdateSportsData]);
 
-  // Calculate match counts per valid category
-  const categoryMatchCounts = {};
-  categories.forEach(c => {
-    categoryMatchCounts[c] = allMasterMatches.filter(m => m.category.toLowerCase() === c.toLowerCase()).length;
-  });
+  // 4. Memoized Matrix mapping (Date -> Time Slot) and Chronological Sort
+  const { masterScheduleMatrix, sortedDates } = useMemo(() => {
+    const matrix = {};
+    allMasterMatches.forEach(m => {
+      const dKey = m.scheduledDate;
+      const tKey = m.scheduledTimeSlot || '11 AM to 12 PM';
+      if (!matrix[dKey]) matrix[dKey] = {};
+      if (!matrix[dKey][tKey]) matrix[dKey][tKey] = [];
+      matrix[dKey][tKey].push(m);
+    });
 
-  // Group master matches by Date -> Time Slot
-  const masterScheduleMatrix = {};
-  allMasterMatches.forEach(m => {
-    const dKey = m.scheduledDate;
-    const tKey = m.scheduledTimeSlot || '11 AM to 12 PM';
-    if (!masterScheduleMatrix[dKey]) masterScheduleMatrix[dKey] = {};
-    if (!masterScheduleMatrix[dKey][tKey]) masterScheduleMatrix[dKey][tKey] = [];
-    masterScheduleMatrix[dKey][tKey].push(m);
-  });
+    const dates = Object.keys(matrix).sort((a, b) => {
+      const dateA = new Date(a);
+      const dateB = new Date(b);
+      if (!isNaN(dateA) && !isNaN(dateB)) {
+        return dateA - dateB;
+      }
+      return a.localeCompare(b);
+    });
 
-  // Sort dates in ascending chronological order
-  const sortedDates = Object.keys(masterScheduleMatrix).sort((a, b) => {
-    const dateA = new Date(a);
-    const dateB = new Date(b);
-    if (!isNaN(dateA) && !isNaN(dateB)) {
-      return dateA - dateB;
-    }
-    return a.localeCompare(b);
-  });
+    return { masterScheduleMatrix: matrix, sortedDates: dates };
+  }, [allMasterMatches]);
 
   return (
     <div className="space-y-6 text-sm">
@@ -282,3 +282,5 @@ export default function MasterScheduleModule({ sportsData = {}, categories = [],
     </div>
   );
 }
+
+export default React.memo(MasterScheduleModule);
