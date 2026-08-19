@@ -57,8 +57,8 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       return;
     }
 
-    const enteredPwd = window.prompt("🔒 Enter Chess Admin Password to execute this action (admin123):");
-    if (enteredPwd === '45756' || enteredPwd === 'admin123') {
+    const enteredPwd = window.prompt("🔒 Enter Chess Admin Password to execute this action (********):");
+    if (enteredPwd === '45756' || enteredPwd === '45756') {
       setIsChessUnlocked(true);
       actionCallback();
     } else if (enteredPwd !== null) {
