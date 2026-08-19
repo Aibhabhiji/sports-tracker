@@ -119,12 +119,13 @@ export default function SanviOlympicsPortal() {
   const [newPlayerCategory, setNewPlayerCategory] = useState('Male');
   const [selectedSportsForNewPlayer, setSelectedSportsForNewPlayer] = useState([]);
 
-  // 12 Default Placeholders for Official Event Sponsors & Partners
+  // 12 Default Placeholders for Official Event Sponsors & Partners (Separated for Lazy-Loading)
   const [sponsors, setSponsors] = useState(() => normalizeSponsors([]));
+  const [loadingSponsors, setLoadingSponsors] = useState(true);
 
-  // Fetch central database data on load
+  // 1. Fetch critical central database data on load (Participants & Sports Data)
   useEffect(() => {
-    async function fetchCentralData() {
+    async function fetchCriticalData() {
       try {
         const res = await fetch('/api/portal-data');
         if (res.ok) {
@@ -135,17 +136,39 @@ export default function SanviOlympicsPortal() {
             setParticipants(getInitialParticipants());
           }
           if (json.sportsData) setSportsData(json.sportsData);
-          if (json.sponsors) {
+          // If sponsors are bundled in legacy payload, support them as fallback
+          if (json.sponsors && json.sponsors.length > 0) {
             setSponsors(normalizeSponsors(json.sponsors));
+            setLoadingSponsors(false);
           }
         }
       } catch (e) {
-        console.error('Failed to load central data, falling back to defaults', e);
+        console.error('Failed to load critical data, falling back to defaults', e);
         setParticipants(getInitialParticipants());
       }
       setIsLoaded(true);
     }
-    fetchCentralData();
+    fetchCriticalData();
+  }, []);
+
+  // 2. Lazy-load non-critical sponsors data independently after initial render path
+  useEffect(() => {
+    async function loadSponsorsLazy() {
+      try {
+        const res = await fetch('/api/portal-data?section=sponsors');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.sponsors) {
+            setSponsors(normalizeSponsors(json.sponsors));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to lazy-load sponsors:', err);
+      } finally {
+        setLoadingSponsors(false);
+      }
+    }
+    loadSponsorsLazy();
   }, []);
 
   const verifyAdminAndExecute = useCallback((actionCallback) => {
@@ -575,7 +598,7 @@ export default function SanviOlympicsPortal() {
         />
       )}
 
-      {/* Official Event Sponsors Banner */}
+      {/* Official Event Sponsors Banner (Lazy-Loaded State) */}
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
@@ -587,29 +610,35 @@ export default function SanviOlympicsPortal() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          {sponsors.map((sponsor) => (
-            <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between relative shadow-sm p-3 hover:shadow-md transition">
-              <div className="w-full aspect-square flex items-center justify-center overflow-hidden bg-slate-50 rounded-lg border border-slate-100 p-2 my-auto relative">
-                {sponsor.image ? (
-                  <Image
-                    src={sponsor.image}
-                    alt={sponsor.title}
-                    width={150}
-                    height={150}
-                    unoptimized={true}
-                    className="w-full h-full object-contain rounded-md"
-                  />
-                ) : (
-                  <span className="text-xs text-slate-400 font-bold text-center">{sponsor.title}</span>
+          {loadingSponsors ? (
+            <div className="col-span-full text-center py-6 text-xs text-slate-400 font-bold animate-pulse">
+              Loading sponsors & partners...
+            </div>
+          ) : (
+            sponsors.map((sponsor) => (
+              <div key={sponsor.id} className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col justify-between relative shadow-sm p-3 hover:shadow-md transition">
+                <div className="w-full aspect-square flex items-center justify-center overflow-hidden bg-slate-50 rounded-lg border border-slate-100 p-2 my-auto relative">
+                  {sponsor.image ? (
+                    <Image
+                      src={sponsor.image}
+                      alt={sponsor.title}
+                      width={150}
+                      height={150}
+                      unoptimized={true}
+                      className="w-full h-full object-contain rounded-md"
+                    />
+                  ) : (
+                    <span className="text-xs text-slate-400 font-bold text-center">{sponsor.title}</span>
+                  )}
+                </div>
+                {sponsor.text && (
+                  <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100 mt-2">
+                    <div className="text-[11px] font-bold text-amber-700 animate-pulse text-center">{sponsor.text}</div>
+                  </div>
                 )}
               </div>
-              {sponsor.text && (
-                <div className="w-full overflow-hidden whitespace-nowrap bg-slate-50 rounded px-2 py-0.5 border border-slate-100 mt-2">
-                  <div className="text-[11px] font-bold text-amber-700 animate-pulse text-center">{sponsor.text}</div>
-                </div>
-              )}
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
 
@@ -894,7 +923,7 @@ export default function SanviOlympicsPortal() {
                           setSponsors(updated);
                         }
                       }}
-                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-lg file:border-0 file:text-[10px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
+                      className="w-full text-xs text-slate-500 file:mr-2 file:py-1 file:px-2 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-amber-500 file:text-white hover:file:bg-amber-600 cursor-pointer"
                     />
                   </div>
 
