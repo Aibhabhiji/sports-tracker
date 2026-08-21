@@ -110,6 +110,9 @@ export default function SanviOlympicsPortal() {
   const [isAdminMode, setIsAdminMode] = useState(false);
   const [adminModuleState, setAdminModuleState] = useState({ admins: [], isAdmin: false });
 
+  // 🌟 Dedicated Sponsor-Only Password State & Protection
+  const [isSponsorAdminMode, setIsSponsorAdminMode] = useState(false);
+
   // Global Add Player Modal States
   const [isAddPlayerModalOpen, setIsAddPlayerModalOpen] = useState(false);
   const [newPlayerName, setNewPlayerName] = useState('');
@@ -185,6 +188,21 @@ export default function SanviOlympicsPortal() {
     }
   }, [isAdminMode]);
 
+  // 🌟 Dedicated Sponsor Password Verification Handler
+  const verifySponsorAdminAndExecute = useCallback((actionCallback) => {
+    if (!isSponsorAdminMode && !isAdminMode) {
+      const pin = prompt('🔒 Sponsor Password Required:\n(Enter dedicated sponsor passcode)');
+      if (pin === 'sponsor123' || pin === 'sanvi2026') { // You can change 'sponsor123' to any passcode you want
+        setIsSponsorAdminMode(true);
+        actionCallback();
+      } else if (pin !== null) {
+        alert('❌ Incorrect sponsor password.');
+      }
+    } else {
+      actionCallback();
+    }
+  }, [isSponsorAdminMode, isAdminMode]);
+
   const saveToCentralServer = async (updatedParticipants, updatedSportsData, updatedSponsors) => {
     verifyAdminAndExecute(async () => {
       try {
@@ -203,6 +221,30 @@ export default function SanviOlympicsPortal() {
       } catch (e) {
         console.error('Server sync error:', e);
         alert('⚠️ Error syncing with the central database server.');
+      }
+    });
+  };
+
+  // 🌟 Standalone Sponsor Save Handler (Protected by Sponsor Password)
+  const saveSponsorsToServer = async (updatedSponsors) => {
+    verifySponsorAdminAndExecute(async () => {
+      try {
+        const res = await fetch('/api/portal-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            participants,
+            sportsData,
+            sponsors: normalizeSponsors(updatedSponsors),
+          }),
+        });
+        if (!res.ok) {
+          throw new Error('Failed to save sponsors to server database.');
+        }
+        alert('✅ Sponsors updated successfully!');
+      } catch (e) {
+        console.error('Server sync error:', e);
+        alert('⚠️ Error syncing sponsors with the central database server.');
       }
     });
   };
@@ -602,11 +644,20 @@ export default function SanviOlympicsPortal() {
       <div className="bg-gradient-to-r from-white via-slate-50 to-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between px-1 gap-3">
           <span className="text-[10px] font-black tracking-widest text-amber-600 uppercase">🌟 OFFICIAL EVENT SPONSORS & PARTNERS</span>
-          {isAdminMode && (
-            <button onClick={() => setIsConfiguringSponsors(true)} className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1">
-              Configure Sponsors →
-            </button>
-          )}
+          
+          {/* 🌟 Accessible via Global Admin OR Dedicated Sponsor Password Prompt */}
+          <button 
+            onClick={() => {
+              if (isAdminMode || isSponsorAdminMode) {
+                setIsConfiguringSponsors(true);
+              } else {
+                verifySponsorAdminAndExecute(() => setIsConfiguringSponsors(true));
+              }
+            }} 
+            className="text-xs font-bold text-amber-700 hover:underline flex items-center gap-1"
+          >
+            {isSponsorAdminMode ? '🔓 Configure Sponsors (Unlocked)' : 'Configure Sponsors →'}
+          </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -622,8 +673,8 @@ export default function SanviOlympicsPortal() {
                     <Image
                       src={sponsor.image}
                       alt={sponsor.title}
-                      width={150}
-                      height={150}
+                      width={180}
+                      height={180}
                       unoptimized={true}
                       className="w-full h-full object-contain rounded-md"
                     />
@@ -846,7 +897,7 @@ export default function SanviOlympicsPortal() {
       )}
 
       {/* Sponsor Configuration Modal */}
-      {isAdminMode && isConfiguringSponsors && (
+      {(isAdminMode || isSponsorAdminMode) && isConfiguringSponsors && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-5xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-6">
             <div className="flex justify-between items-center border-b border-slate-100 pb-4">
@@ -883,8 +934,8 @@ export default function SanviOlympicsPortal() {
                       <Image
                         src={sponsor.image}
                         alt={sponsor.title}
-                        width={120}
-                        height={120}
+                        width={180}
+                        height={180}
                         unoptimized={true}
                         className="w-full h-full object-contain rounded"
                       />
@@ -948,7 +999,7 @@ export default function SanviOlympicsPortal() {
             <div className="flex justify-end pt-4 border-t border-slate-100">
               <button 
                 onClick={() => {
-                  saveToCentralServer(participants, sportsData, sponsors);
+                  saveSponsorsToServer(sponsors);
                   setIsConfiguringSponsors(false);
                 }} 
                 className="bg-amber-500 hover:bg-amber-600 text-white font-black px-6 py-2.5 rounded-xl text-xs shadow transition"
