@@ -302,7 +302,7 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
     };
   }
 
-  // --- ROBUST STANDINGS RECALCULATION HELPER ---
+// --- ROBUST STANDINGS RECALCULATION HELPER ---
   function recalculateGroupStandings(standings, matches) {
     const newStandings = standings.map(s => ({
       ...s,
@@ -313,11 +313,23 @@ export default function ChessAdvancedModule({ participants = [], sportState = {}
       points: 0
     }));
 
+    // Multi-tier robust player finder to prevent ID/name mismatch bugs in 5+ player groups
+    const findPlayer = (matchPlayer) => {
+      if (!matchPlayer) return null;
+      return newStandings.find(s => 
+        (s.id && matchPlayer.id && s.id === matchPlayer.id) ||
+        (s.regId && matchPlayer.regId && s.regId === matchPlayer.regId) ||
+        (s.Registration_ID && matchPlayer.Registration_ID && s.Registration_ID === matchPlayer.Registration_ID) ||
+        (s.name && matchPlayer.name && s.name.trim().toLowerCase() === matchPlayer.name.trim().toLowerCase())
+      );
+    };
+
     matches.forEach(m => {
       if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
-        const pA = newStandings.find(s => s.id === m.playerA?.id || s.regId === m.playerA?.regId || s.name === m.playerA?.name);
-        const pB = newStandings.find(s => s.id === m.playerB?.id || s.regId === m.playerB?.regId || s.name === m.playerB?.name);
-        if (pA && pB) {
+        const pA = findPlayer(m.playerA);
+        const pB = findPlayer(m.playerB);
+
+        if (pA && pB && pA.id !== pB.id) {
           const sA = Number(m.scoreA);
           const sB = Number(m.scoreB);
           pA.played += 1;
