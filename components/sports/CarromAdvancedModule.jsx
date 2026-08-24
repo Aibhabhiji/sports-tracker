@@ -18,13 +18,13 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
   const [scheduleStartHourInput, setScheduleStartHourInput] = useState('17'); // 17 = 5 PM
   const [scheduleTotalHoursInput, setScheduleTotalHoursInput] = useState('4'); // 4 hours
 
-  // Per-category rounds & teams stored in sportState
+  // Per-category rounds & teams stored in sportState with safe defaults
   const categoryRoundsMap = sportState?.categoryRounds || {};
   const categoryTeamsMap = sportState?.categoryTeams || {};
 
   const currentCategoryData = categoryRoundsMap[selectedCategory] || { rounds: [], currentRoundIndex: 0 };
-  const rounds = currentCategoryData.rounds;
-  const currentRoundIndex = currentCategoryData.currentRoundIndex;
+  const rounds = currentCategoryData.rounds || [];
+  const currentRoundIndex = currentCategoryData.currentRoundIndex || 0;
   const currentTeams = categoryTeamsMap[selectedCategory] || [];
 
   const [advancementCount, setAdvancementCount] = useState(2);
@@ -100,7 +100,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     return `${formatSingleTime(startHourFloat)} to ${formatSingleTime(endFloat)}`;
   }, []);
 
-  // Central Admin Verification Guard with Dedicated Carrom Password ('carrom2026' or 'admin123')
+  // Central Admin Verification Guard with Dedicated Carrom Password
   const verifyAdminAndExecute = useCallback((actionCallback) => {
     if (isAdminUnlocked) {
       actionCallback();
@@ -115,13 +115,14 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     }
   }, [isAdminUnlocked]);
 
-  // Effective advancement count per group
+  // Effective advancement count per group with safe fallback
   const getEffectiveAdv = useCallback((grp, isGrand) => {
     if (isGrand) return 1;
-    if (grp.standings.length === 5) return 3;
-    if (grp.standings.length === 4) return 2;
-    if (grp.standings.length === 3) return 2;
-    if (grp.standings.length < 4) return 1;
+    const standings = grp?.standings || [];
+    if (standings.length === 5) return 3;
+    if (standings.length === 4) return 2;
+    if (standings.length === 3) return 2;
+    if (standings.length < 4) return 1;
     return advancementCount;
   }, [advancementCount]);
 
@@ -136,7 +137,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
     const slotTracker = {};
 
-    return allMatches.map((m) => {
+    return (allMatches || []).map((m) => {
       let dayIdx = 0;
       let slotIdx = 0;
       let assigned = false;
@@ -183,7 +184,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     });
   }, [scheduleStartHourInput, scheduleTotalHoursInput, scheduleDateInput, formatDateShort, formatTimeSlot30]);
 
-  // Calculate Initial Match Schedule Fallback (6 matches per slot, 30-min duration)
+  // Calculate Initial Match Schedule Fallback
   const calculateInitialMatchSchedule = useCallback((matchIndex) => {
     const startD = new Date(scheduleDateInput || '2026-08-15');
     const startHour = parseInt(scheduleStartHourInput, 10) || 17;
@@ -211,7 +212,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     };
   }, [scheduleDateInput, scheduleStartHourInput, scheduleTotalHoursInput, formatDateShort, formatTimeSlot30]);
 
-  // Memoized Filtered participants specifically for selected category matching chess logic
+  // Memoized Filtered participants matching selected category
   const filteredParticipants = useMemo(() => {
     const rawFiltered = (participants || []).filter(p => {
       if (!selectedCategory || selectedCategory === 'All') return true;
@@ -237,7 +238,6 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       return pCat.includes(catStr) || pAgeGroup.includes(catStr);
     });
 
-    // Strict participant deduplication
     const seenIds = new Set();
     const seenNames = new Set();
     return rawFiltered.filter(p => {
@@ -250,19 +250,20 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     });
   }, [participants, selectedCategory]);
 
-  // Sync schedules for all individual players across all teams to sportState.playerSchedules
+  // Sync schedules safely for all individual players across all teams
   const buildPlayerSchedulesMap = useCallback((updatedRoundsMap, updatedTeamsMap) => {
-    const schedulesMap = { ...(sportState.playerSchedules || {}) };
+    const schedulesMap = { ...(sportState?.playerSchedules || {}) };
 
-    Object.entries(updatedRoundsMap).forEach(([catKey, catData]) => {
+    Object.entries(updatedRoundsMap || {}).forEach(([catKey, catData]) => {
       const catRounds = catData?.rounds || [];
       catRounds.forEach(r => {
-        (r.groups || []).forEach(g => {
-          (g.matches || []).forEach(m => {
+        (r?.groups || []).forEach(g => {
+          (g?.matches || []).forEach(m => {
+            if (!m?.playerA || !m?.playerB) return;
             const assignScheduleToTeamMembers = (teamObj) => {
               if (!teamObj) return;
               const players = [teamObj.player1, teamObj.player2].filter(Boolean);
-              const opponent = m.playerA.id === teamObj.id ? m.playerB : m.playerA;
+              const opponent = m.playerA?.id === teamObj.id ? m.playerB : m.playerA;
               const textVal = m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`;
 
               players.forEach(player => {
@@ -301,7 +302,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     });
 
     return schedulesMap;
-  }, [sportState.playerSchedules, participants]);
+  }, [sportState?.playerSchedules, participants]);
 
   const updateCurrentCategoryState = useCallback((newRounds, newRoundIndex, newTeams) => {
     const updatedRoundsMap = {
@@ -393,7 +394,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
     });
   }, [verifyAdminAndExecute, filteredParticipants, selectedCategory, updateCurrentCategoryState]);
 
-  // Helper to fetch individual participant's assigned team and schedule
+  // Helper to fetch individual participant's assigned team and schedule safely
   const getParticipantTeamAndSchedule = useCallback((p, idx = 0) => {
     const pid = p.id || p.regId || p.Registration_ID;
     const normName = p.name?.trim().toLowerCase();
@@ -430,9 +431,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
     if (foundTeam) {
       for (const r of rounds) {
-        for (const g of r.groups || []) {
-          for (const m of g.matches || []) {
-            if (m.playerA?.id === foundTeam.id || m.playerB?.id === foundTeam.id) {
+        for (const g of (r?.groups || [])) {
+          for (const m of (g?.matches || [])) {
+            if (m?.playerA?.id === foundTeam.id || m?.playerB?.id === foundTeam.id) {
               const textVal = m.fullScheduleText || `Date:${m.scheduledDate} ${m.scheduledTimeSlot}`;
               return {
                 team: foundTeam,
@@ -552,9 +553,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
       const newRounds = [{ roundName: 'Round 1', groups: initialGroups }];
       updateCurrentCategoryState(newRounds, 0, teamsToUse);
-      alert(`Round 1 initialized for ${selectedCategory} with ${teamsToUse.length} doubles teams (Starting ${scheduleDateInput} at ${scheduleStartHourInput}:00 for ${scheduleTotalHoursInput} hrs/day, 6 matches/slot, 30-min duration)!`);
+      alert(`Round 1 initialized for ${selectedCategory} with ${teamsToUse.length} doubles teams!`);
     });
-  }, [verifyAdminAndExecute, currentTeams, filteredParticipants, selectedCategory, groupSize, buildConflictFreeSchedule, updateCurrentCategoryState, scheduleDateInput, scheduleStartHourInput, scheduleTotalHoursInput]);
+  }, [verifyAdminAndExecute, currentTeams, filteredParticipants, selectedCategory, groupSize, buildConflictFreeSchedule, updateCurrentCategoryState]);
 
   const handleSaveIndividualSchedule = useCallback((groupIndex, matchId) => {
     verifyAdminAndExecute(() => {
@@ -569,10 +570,10 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const updatedRounds = rounds.map((r, rIdx) => {
         if (rIdx !== currentRoundIndex) return r;
 
-        const updatedGroups = r.groups.map((grp, gIdx) => {
+        const updatedGroups = (r?.groups || []).map((grp, gIdx) => {
           if (gIdx !== groupIndex) return grp;
 
-          const updatedMatches = grp.matches.map(m => {
+          const updatedMatches = (grp?.matches || []).map(m => {
             if (m.id === matchId) {
               return {
                 ...m,
@@ -606,17 +607,17 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const numA = Number(scoreA);
       const numB = Number(scoreB);
 
-      const updatedGroups = currentRound.groups.map((grp, gIdx) => {
+      const updatedGroups = (currentRound?.groups || []).map((grp, gIdx) => {
         if (gIdx !== groupIndex) return grp;
 
-        const updatedMatches = grp.matches.map(m => {
+        const updatedMatches = (grp?.matches || []).map(m => {
           if (m.id === matchId) {
             return { ...m, scoreA: numA, scoreB: numB, isLocked: true };
           }
           return m;
         });
 
-        const newStandings = grp.standings.map(s => ({
+        const newStandings = (grp?.standings || []).map(s => ({
           ...s,
           played: 0,
           won: 0,
@@ -626,7 +627,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
         }));
 
         updatedMatches.forEach(m => {
-          if (m.isLocked && m.scoreA !== null && m.scoreB !== null) {
+          if (m?.isLocked && m.scoreA !== null && m.scoreB !== null && m?.playerA && m?.playerB) {
             const tA = newStandings.find(s => s.id === m.playerA.id);
             const tB = newStandings.find(s => s.id === m.playerB.id);
             if (tA && tB) {
@@ -663,11 +664,13 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const currentRound = rounds[currentRoundIndex];
       if (!currentRound) return;
 
-      const grp = currentRound.groups[groupIndex];
+      const grp = currentRound?.groups?.[groupIndex];
+      if (!grp) return;
+
       const isGrandFinaleGroup = currentRound?.roundName?.toLowerCase().includes('grand finals');
       const effectiveAdv = getEffectiveAdv(grp, isGrandFinaleGroup);
 
-      const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+      const sorted = [...(grp.standings || [])].sort((a, b) => (b.points || 0) - (a.points || 0) || (b.won || 0) - (a.won || 0));
 
       let tiedTeams = [];
       if (isGrandFinaleGroup) {
@@ -698,7 +701,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const newTiebreakerMatches = [];
       for (let x = 0; x < tiedList.length; x++) {
         for (let y = x + 1; y < tiedList.length; y++) {
-          const sched = calculateInitialMatchSchedule(grp.matches.length + newTiebreakerMatches.length + 10);
+          const sched = calculateInitialMatchSchedule((grp.matches || []).length + newTiebreakerMatches.length + 10);
           const matchObj = {
             id: `CARROM_TIEBREAK_${selectedCategory}_${grp.groupName}_${x}_${y}_${Date.now()}`,
             groupName: grp.groupName,
@@ -716,18 +719,18 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
         }
       }
 
-      const updatedGroups = currentRound.groups.map((g, gIdx) => {
+      const updatedGroups = (currentRound.groups || []).map((g, gIdx) => {
         if (gIdx !== groupIndex) return g;
         return {
           ...g,
-          matches: [...g.matches, ...newTiebreakerMatches]
+          matches: [...(g.matches || []), ...newTiebreakerMatches]
         };
       });
 
       const updatedRounds = [...rounds];
       updatedRounds[currentRoundIndex] = { ...currentRound, groups: updatedGroups };
       updateCurrentCategoryState(updatedRounds, currentRoundIndex, currentTeams);
-      alert(`⚖️ ${newTiebreakerMatches.length} tiebreaker playoff match(es) successfully scheduled among ${tiedList.map(t => t.name).join(', ')}!`);
+      alert(`⚖️ ${newTiebreakerMatches.length} tiebreaker playoff match(es) successfully scheduled!`);
     });
   }, [verifyAdminAndExecute, rounds, currentRoundIndex, getEffectiveAdv, calculateInitialMatchSchedule, selectedCategory, currentTeams, updateCurrentCategoryState]);
 
@@ -736,8 +739,8 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       const currentRound = rounds[currentRoundIndex];
       if (!currentRound) return;
 
-      const hasUncompletedMatches = currentRound.groups.some(grp =>
-        grp.matches.length === 0 || grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
+      const hasUncompletedMatches = (currentRound?.groups || []).some(grp =>
+        (grp?.matches || []).length === 0 || (grp?.matches || []).some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
       );
 
       if (hasUncompletedMatches) {
@@ -746,17 +749,19 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       }
 
       let qualifiedTeams = [];
-      currentRound.groups.forEach(grp => {
-        const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-        const effectiveAdv = getEffectiveAdv(grp, isGrandFinale);
+      const isGrandFinaleCurrent = currentRound?.roundName?.toLowerCase().includes('grand finals');
+
+      (currentRound?.groups || []).forEach(grp => {
+        const sorted = [...(grp?.standings || [])].sort((a, b) => (b.points || 0) - (a.points || 0) || (b.won || 0) - (a.won || 0));
+        const effectiveAdv = getEffectiveAdv(grp, isGrandFinaleCurrent);
         const topN = sorted.slice(0, effectiveAdv);
         qualifiedTeams.push(...topN);
       });
 
       const qSeenIds = new Set();
       const uniqueQualified = qualifiedTeams.filter(t => {
-        if (t.id && qSeenIds.has(t.id)) return false;
-        if (t.id) qSeenIds.add(t.id);
+        if (t?.id && qSeenIds.has(t.id)) return false;
+        if (t?.id) qSeenIds.add(t.id);
         return true;
       });
 
@@ -826,11 +831,11 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       updateCurrentCategoryState(updatedRounds, rounds.length, currentTeams);
       alert(`Successfully advanced ${uniqueQualified.length} teams to ${nextRoundName} for category ${selectedCategory}!`);
     });
-  }, [verifyAdminAndExecute, rounds, currentRoundIndex, getEffectiveAdv, isGrandFinale, groupSize, selectedCategory, buildConflictFreeSchedule, updateCurrentCategoryState, currentTeams]);
+  }, [verifyAdminAndExecute, rounds, currentRoundIndex, getEffectiveAdv, groupSize, selectedCategory, buildConflictFreeSchedule, updateCurrentCategoryState, currentTeams]);
 
   const verifyAdminPassword = useCallback((e) => {
     e.preventDefault();
-    if (adminPasswordInput === '70908' || adminPasswordInput === 'carrom2026' || adminPasswordInput === '70908') {
+    if (adminPasswordInput === '70908' || adminPasswordInput === 'carrom2026') {
       setIsAdminUnlocked(true);
       setAdminPasswordInput('');
       alert('Carrom Admin unlocked! You can now edit schedules and match results.');
@@ -842,20 +847,22 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
   const currentRound = rounds[currentRoundIndex];
   const isGrandFinale = currentRound?.roundName?.toLowerCase().includes('grand finals');
 
-  // Check group completion & tie status for current round
-  const hasUncompletedMatches = currentRound ? currentRound.groups.some(grp =>
-    grp.matches.length === 0 || grp.matches.some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
+  // Check group completion & tie status for current round safely
+  const hasUncompletedMatches = currentRound ? (currentRound?.groups || []).some(grp =>
+    (grp?.matches || []).length === 0 || (grp?.matches || []).some(m => !m.isLocked || m.scoreA === null || m.scoreB === null)
   ) : false;
 
-  const hasUnresolvedTies = currentRound ? currentRound.groups.some(grp => {
-    const allDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
+  const hasUnresolvedTies = currentRound ? (currentRound?.groups || []).some(grp => {
+    const matches = grp?.matches || [];
+    const standings = grp?.standings || [];
+    const allDone = matches.length > 0 && matches.every(m => m?.isLocked && m.scoreA !== null && m.scoreB !== null);
     if (!allDone) return false;
     const effectiveAdv = getEffectiveAdv(grp, isGrandFinale);
-    if (effectiveAdv >= grp.standings.length) return false;
-    const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+    if (effectiveAdv >= standings.length) return false;
+    const sorted = [...standings].sort((a, b) => (b.points || 0) - (a.points || 0) || (b.won || 0) - (a.won || 0));
     const cutoffP = sorted[effectiveAdv - 1]?.points;
     const nextP = sorted[effectiveAdv]?.points;
-    return cutoffP === nextP;
+    return cutoffP !== undefined && nextP !== undefined && cutoffP === nextP;
   }) : false;
 
   const canAdvance = currentRound && !hasUncompletedMatches && !hasUnresolvedTies;
@@ -864,16 +871,18 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
   let grandFinalsCompleted = false;
   let grandFinalsTie = false;
 
-  if (isGrandFinale && currentRound.groups.length > 0) {
+  if (isGrandFinale && (currentRound?.groups || []).length > 0) {
     const g = currentRound.groups[0];
-    const allMatchesDone = g.matches.length > 0 && g.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
-    const sorted = [...g.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+    const matches = g?.matches || [];
+    const standings = g?.standings || [];
+    const allMatchesDone = matches.length > 0 && matches.every(m => m?.isLocked && m.scoreA !== null && m.scoreB !== null);
+    const sorted = [...standings].sort((a, b) => (b.points || 0) - (a.points || 0) || (b.won || 0) - (a.won || 0));
 
     if (allMatchesDone && sorted.length >= 2) {
-      if (sorted[0].points > sorted[1].points || (sorted[0].points === sorted[1].points && sorted[0].won > sorted[1].won)) {
+      if ((sorted[0]?.points || 0) > (sorted[1]?.points || 0) || ((sorted[0]?.points || 0) === (sorted[1]?.points || 0) && (sorted[0]?.won || 0) > (sorted[1]?.won || 0))) {
         grandChampionTeam = sorted[0];
         grandFinalsCompleted = true;
-      } else if (sorted[0].points === sorted[1].points && sorted[0].won === sorted[1].won) {
+      } else if ((sorted[0]?.points || 0) === (sorted[1]?.points || 0) && (sorted[0]?.won || 0) === (sorted[1]?.won || 0)) {
         grandFinalsTie = true;
       }
     } else if (allMatchesDone && sorted.length === 1) {
@@ -888,7 +897,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
       <div className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 shadow-xl">
         <div>
           <h3 className="text-sm font-black text-amber-400">🎯 Carrom Doubles Championship Suite</h3>
-          <p className="text-xs text-slate-400">2 Players per Team format (Doubles). Form teams per category, auto-schedule team fixtures (6 matches/slot, 30-min duration) & track standings.</p>
+          <p className="text-xs text-slate-400">2 Players per Team format (Doubles). Form teams per category, auto-schedule team fixtures & track standings.</p>
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -912,7 +921,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
             </select>
           </div>
 
-          {/* Schedule Setup Controls placed in the highlighted area */}
+          {/* Schedule Setup Controls */}
           <div className="flex items-center gap-2 bg-slate-950 px-3 py-2 rounded-xl border border-amber-500/30 text-xs flex-wrap">
             <span className="text-amber-400 font-black">📅 Schedule Setup:</span>
             <input
@@ -1092,7 +1101,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                     )}
                   </div>
 
-                  {/* Player Schedule Badge (Capturing Date, Start Time & 30-min End Time) */}
+                  {/* Player Schedule Badge */}
                   <div className="pt-1">
                     {info.schedule && (
                       <div className="bg-rose-950/70 border border-rose-500/60 p-2 rounded-xl text-[11px] font-bold text-rose-200 space-y-0.5 shadow">
@@ -1131,7 +1140,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
               <div className="flex justify-between items-center">
                 <div>
                   <h4 className="text-xs font-black text-amber-400 uppercase tracking-wider">{selectedCategory} — {currentRound.roundName} Leaderboards & Team Groups</h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5">Click directly on any schedule badge below to customize its date, start time, and end time (30-min duration).</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Click directly on any schedule badge below to customize its date and time slot.</p>
                 </div>
 
                 <div className="flex gap-2 items-center">
@@ -1161,19 +1170,21 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
               </div>
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                {currentRound.groups.map((grp, gIdx) => {
+                {(currentRound?.groups || []).map((grp, gIdx) => {
                   const effectiveAdv = getEffectiveAdv(grp, isGrandFinale);
-                  const allGroupMatchesDone = grp.matches.length > 0 && grp.matches.every(m => m.isLocked && m.scoreA !== null && m.scoreB !== null);
+                  const matches = grp?.matches || [];
+                  const standings = grp?.standings || [];
+                  const allGroupMatchesDone = matches.length > 0 && matches.every(m => m?.isLocked && m.scoreA !== null && m.scoreB !== null);
 
                   let groupHasTie = false;
-                  if (allGroupMatchesDone && effectiveAdv < grp.standings.length) {
-                    const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
+                  if (allGroupMatchesDone && effectiveAdv < standings.length) {
+                    const sorted = [...standings].sort((a, b) => (b.points || 0) - (a.points || 0) || (b.won || 0) - (a.won || 0));
                     const cutoffP = sorted[effectiveAdv - 1]?.points;
                     const nextP = sorted[effectiveAdv]?.points;
-                    if (cutoffP === nextP) groupHasTie = true;
+                    if (cutoffP !== undefined && nextP !== undefined && cutoffP === nextP) groupHasTie = true;
                   } else if (allGroupMatchesDone && isGrandFinale) {
-                    const sorted = [...grp.standings].sort((a, b) => b.points - a.points || b.won - a.won);
-                    if (sorted.length >= 2 && sorted[0].points === sorted[1].points && sorted[0].won === sorted[1].won) {
+                    const sorted = [...standings].sort((a, b) => (b.points || 0) - (a.points || 0) || (b.won || 0) - (a.won || 0));
+                    if (sorted.length >= 2 && (sorted[0]?.points || 0) === (sorted[1]?.points || 0) && (sorted[0]?.won || 0) === (sorted[1]?.won || 0)) {
                       groupHasTie = true;
                     }
                   }
@@ -1181,9 +1192,9 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                   return (
                     <div key={grp.groupName} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-xl space-y-4">
                       <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                        <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({grp.standings.length} Teams)</h5>
+                        <h5 className="font-black text-amber-400 text-xs">{grp.groupName} ({standings.length} Teams)</h5>
                         <span className="text-[10px] text-slate-400">
-                          {isGrandFinale ? 'Grand Final Match' : (grp.standings.length === 5 ? 'Top 3 Advance (5-Team Group)' : (grp.standings.length === 4 ? 'Top 2 Advance (4-Team Group)' : (grp.standings.length === 3 ? 'Top 2 Advance (3-Team Group)' : `Top ${effectiveAdv} Advance`)))}
+                          {isGrandFinale ? 'Grand Final Match' : (standings.length === 5 ? 'Top 3 Advance (5-Team Group)' : (standings.length === 4 ? 'Top 2 Advance (4-Team Group)' : (standings.length === 3 ? 'Top 2 Advance (3-Team Group)' : `Top ${effectiveAdv} Advance`)))}
                         </span>
                       </div>
 
@@ -1200,7 +1211,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-800/60">
-                          {grp.standings.sort((a, b) => b.points - a.points || b.won - a.won).map((s, rank) => (
+                          {[...standings].sort((a, b) => (b.points || 0) - (a.points || 0) || (b.won || 0) - (a.won || 0)).map((s, rank) => (
                             <tr key={s.id} className={rank < effectiveAdv ? 'bg-emerald-950/20' : ''}>
                               <td className="py-2.5 font-bold text-slate-100 flex items-center gap-2">
                                 <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${rank < effectiveAdv ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
@@ -1235,17 +1246,17 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
 
                       {/* Team Match Scorekeeping Grid */}
                       <div className="mt-4 pt-4 border-t border-slate-800 space-y-3">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Team Match Score Grid & Schedule (6 Matches/Slot, 30-Min Duration)</span>
-                        {grp.matches.map((m) => (
-                          <div key={m.id} className={`bg-slate-950 p-3 rounded-xl border ${m.isTiebreaker ? 'border-amber-500/50 bg-amber-950/10' : 'border-slate-800'} space-y-3`}>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Team Match Score Grid & Schedule</span>
+                        {matches.map((m) => (
+                          <div key={m.id} className={`bg-slate-950 p-3 rounded-xl border ${m?.isTiebreaker ? 'border-amber-500/50 bg-amber-950/10' : 'border-slate-800'} space-y-3`}>
                             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                               <div className="space-y-1">
                                 <div className="text-xs font-bold text-slate-200 flex items-center gap-2">
-                                  {m.isTiebreaker && <span className="bg-amber-500/20 text-amber-400 text-[9px] px-1.5 py-0.5 rounded font-black border border-amber-500/30">Tiebreaker</span>}
-                                  <span><span className="text-amber-300">{m.playerA.name}</span> <span className="text-slate-500 font-normal">vs</span> <span className="text-amber-300">{m.playerB.name}</span></span>
+                                  {m?.isTiebreaker && <span className="bg-amber-500/20 text-amber-400 text-[9px] px-1.5 py-0.5 rounded font-black border border-amber-500/30">Tiebreaker</span>}
+                                  <span><span className="text-amber-300">{m?.playerA?.name || 'TBD'}</span> <span className="text-slate-500 font-normal">vs</span> <span className="text-amber-300">{m?.playerB?.name || 'TBD'}</span></span>
                                 </div>
 
-                                {/* Schedule Badge (Date, Start Time & 30-Min End Time) */}
+                                {/* Schedule Badge */}
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <div
                                     onClick={() => {
@@ -1258,13 +1269,13 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                                     className="inline-flex items-center gap-1.5 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/70 px-2.5 py-1 rounded text-[10px] font-bold text-rose-200 cursor-pointer shadow transition"
                                     title="Click to edit schedule"
                                   >
-                                    <span>📅 Date:{m.scheduledDate} Time: {m.scheduledTimeSlot} ({currentRound.roundName})</span>
+                                    <span>📅 Date:{m?.scheduledDate} Time: {m?.scheduledTimeSlot} ({currentRound.roundName})</span>
                                     <span className="bg-rose-500/30 px-1.5 py-0.5 rounded text-[9px] text-amber-300 font-black">✏️ Edit</span>
                                   </div>
                                 </div>
                               </div>
 
-                              {m.isLocked && !isAdminUnlocked ? (
+                              {m?.isLocked && !isAdminUnlocked ? (
                                 <div className="flex items-center gap-3">
                                   <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2.5 py-1 rounded font-black border border-emerald-500/20">
                                     Result: {m.scoreA} - {m.scoreB}
@@ -1274,7 +1285,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                               ) : (
                                 <div className="flex items-center gap-2">
                                   <select
-                                    value={m.scoreA !== null ? m.scoreA : ''}
+                                    value={m?.scoreA !== null && m?.scoreA !== undefined ? m.scoreA : ''}
                                     onChange={(e) => {
                                       const valA = Number(e.target.value);
                                       const valB = valA === 0.5 ? 0.5 : (valA === 1 ? 0 : 1);
@@ -1291,7 +1302,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                                   <span className="text-slate-500 font-bold">-</span>
 
                                   <select
-                                    value={m.scoreB !== null ? m.scoreB : ''}
+                                    value={m?.scoreB !== null && m?.scoreB !== undefined ? m.scoreB : ''}
                                     onChange={(e) => {
                                       const valB = Number(e.target.value);
                                       const valA = valB === 0.5 ? 0.5 : (valB === 1 ? 0 : 1);
@@ -1312,7 +1323,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                             {editingMatchScheduleId === m.id && (
                               <div className="bg-slate-900 p-3 rounded-xl border border-amber-500/40 space-y-3 shadow-xl">
                                 <div className="flex justify-between items-center">
-                                  <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">✏️ Custom Schedule Override for Match (30-Min Slot)</div>
+                                  <div className="text-[11px] font-black text-amber-400 uppercase tracking-wider">✏️ Custom Schedule Override</div>
                                   <button onClick={() => setEditingMatchScheduleId(null)} className="text-slate-400 hover:text-white text-xs font-bold">✕ Close</button>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1326,7 +1337,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                                     />
                                   </div>
                                   <div>
-                                    <label className="text-slate-400 text-[10px] block mb-1">Time Slot (e.g., 5 PM to 5:30 PM):</label>
+                                    <label className="text-slate-400 text-[10px] block mb-1">Time Slot:</label>
                                     <input
                                       type="text"
                                       value={tempScheduleTime}
@@ -1356,9 +1367,6 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                 {/* GRAND FINALE WINNER CELEBRATION BOX */}
                 {isGrandFinale && (
                   <div className="bg-gradient-to-br from-amber-950/40 via-slate-900 to-yellow-950/30 p-8 rounded-2xl border-2 border-amber-500/50 shadow-2xl flex flex-col items-center justify-center text-center relative overflow-hidden">
-                    <div className="absolute -top-12 -right-12 w-32 h-32 bg-amber-500/20 rounded-full blur-2xl"></div>
-                    <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-yellow-500/20 rounded-full blur-2xl"></div>
-
                     <div className="w-20 h-20 bg-gradient-to-tr from-amber-500 to-yellow-300 text-slate-950 rounded-full flex items-center justify-center text-3xl font-black shadow-lg shadow-amber-500/40 mb-4 animate-bounce">
                       👑
                     </div>
@@ -1376,10 +1384,6 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
                         ? `Players: ${grandChampionTeam.player1?.name} & ${grandChampionTeam.player2?.name} • Total Points: ${grandChampionTeam.points} Pts`
                         : (grandFinalsTie ? 'Both finalist teams have tied. Please use the tiebreaker button to determine the sole champion team.' : 'Complete the Grand Finale match grid to reveal the champion team.')}
                     </p>
-
-                    <div className="mt-6 flex items-center gap-2 text-xs text-amber-400/80 bg-slate-950/60 px-4 py-2 rounded-xl border border-amber-500/20">
-                      <span>✨ {grandFinalsCompleted && grandChampionTeam ? `Congratulations to the ${selectedCategory} Carrom Champions!` : 'Tournament Conclusion Pending'} ✨</span>
-                    </div>
                   </div>
                 )}
               </div>
@@ -1388,7 +1392,7 @@ export default function CarromAdvancedModule({ participants = [], sportState = {
             <div className="text-center py-20 bg-slate-900 rounded-2xl border border-slate-800 text-slate-400 space-y-3">
               <p>No active tournament round for category: <strong className="text-amber-400">{selectedCategory}</strong>.</p>
               <button onClick={handleInitializeRound1} className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow">
-                🚀 Start Round 1 for {selectedCategory} ({currentTeams.length > 0 ? `${currentTeams.length} Teams` : `${filteredParticipants.length} players (auto-pair into teams)`})
+                🚀 Start Round 1 for {selectedCategory}
               </button>
             </div>
           )}
